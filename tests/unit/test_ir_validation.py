@@ -168,3 +168,70 @@ def test_non_monotonic_measure_order_is_warning() -> None:
     codes = {issue.code for issue in report.issues}
 
     assert "NON_MONOTONIC_MEASURE_ORDER" in codes
+
+
+def test_chord_without_anchor_is_reported() -> None:
+    measure = _make_measure(
+        measure_id="measure-001",
+        number=1,
+        include_time=True,
+        events=[
+            Note(
+                id="event-001",
+                pitch=Pitch(step="E", octave=4),
+                duration=Duration(1, 1),
+                voice=1,
+                chord=True,
+            )
+        ],
+    )
+
+    report = validate_score(_score_with_measures(measure))
+    codes = {issue.code for issue in report.issues}
+
+    assert "CHORD_WITHOUT_ANCHOR" in codes
+
+
+def test_slur_stop_without_start_is_reported() -> None:
+    measure = _make_measure(
+        measure_id="measure-001",
+        number=1,
+        include_time=True,
+        events=[
+            Note(
+                id="event-001",
+                pitch=Pitch(step="E", octave=4),
+                duration=Duration(1, 1),
+                voice=1,
+                slurs=("stop",),
+            )
+        ],
+    )
+
+    report = validate_score(_score_with_measures(measure))
+    codes = {issue.code for issue in report.issues}
+
+    assert "SLUR_STOP_WITHOUT_START" in codes
+
+
+def test_tuplet_stop_without_start_is_reported() -> None:
+    measure = _make_measure(
+        measure_id="measure-001",
+        number=1,
+        include_time=True,
+        events=[
+            Note(
+                id="event-001",
+                pitch=Pitch(step="E", octave=4),
+                duration=Duration(1, 4),
+                voice=1,
+                tuplet="stop",
+                tuplet_ratio=(3, 2),
+            )
+        ],
+    )
+
+    report = validate_score(_score_with_measures(measure))
+    codes = {issue.code for issue in report.issues}
+
+    assert "TUPLET_STOP_WITHOUT_START" in codes

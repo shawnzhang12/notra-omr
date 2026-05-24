@@ -141,8 +141,8 @@ Acceptance:
 - [x] Step 3 complete (pending Gate B)
 - [x] Step 4 complete
 - [x] Step 5 complete (pending Gate C)
-- [ ] Step 6 complete (pending Gate D)
-- [ ] Step 7 complete
+- [x] Step 6 complete (pending Gate D)
+- [x] Step 7 complete
 - [ ] Step 8 complete (pending Gate E)
 - [ ] Step 9 complete
 - [ ] Step 10 complete

@@ -1,0 +1,53 @@
+{
+  "ir_version": "0.1.0",
+  "id": "score-060",
+  "title": "Step 6 Invalid Semantics",
+  "parts": [
+    {
+      "id": "P1",
+      "name": "Validation",
+      "measures": [
+        {
+          "id": "measure-001",
+          "number": 1,
+          "attributes": {
+            "time": { "beats": 4, "beat_type": 4 },
+            "divisions": 8
+          },
+          "voices": [
+            {
+              "id": "v1",
+              "events": [
+                {
+                  "kind": "note",
+                  "id": "event-001",
+                  "pitch": { "step": "C", "octave": 4 },
+                  "duration": { "numerator": 1, "denominator": 4 },
+                  "voice": 1,
+                  "chord": true
+                },
+                {
+                  "kind": "note",
+                  "id": "event-002",
+                  "pitch": { "step": "D", "octave": 4 },
+                  "duration": { "numerator": 1, "denominator": 4 },
+                  "voice": 1,
+                  "slurs": ["stop"],
+                  "tuplet": "stop",
+                  "tuplet_ratio": { "actual_notes": 3, "normal_notes": 2 }
+                },
+                {
+                  "kind": "note",
+                  "id": "event-002",
+                  "pitch": { "step": "E", "octave": 4 },
+                  "duration": { "numerator": 1, "denominator": 4 },
+                  "voice": 2
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

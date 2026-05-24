@@ -1,0 +1,66 @@
+{
+  "summary": {
+    "total": 6,
+    "errors": 5,
+    "warnings": 1,
+    "info": 0
+  },
+  "issues": [
+    {
+      "severity": "error",
+      "code": "CHORD_WITHOUT_ANCHOR",
+      "message": "Note 'event-001' is marked as chord tone without a preceding anchor note in voice 'v1'.",
+      "node_id": "measure-001",
+      "related_node_ids": [
+        "event-001"
+      ]
+    },
+    {
+      "severity": "error",
+      "code": "TUPLET_STOP_WITHOUT_START",
+      "message": "Tuplet stop on note 'event-002' has no active tuplet to close.",
+      "node_id": "measure-001",
+      "related_node_ids": [
+        "event-002"
+      ]
+    },
+    {
+      "severity": "error",
+      "code": "SLUR_STOP_WITHOUT_START",
+      "message": "Slur stop on note 'event-002' without active slur.",
+      "node_id": "measure-001",
+      "related_node_ids": [
+        "event-002"
+      ]
+    },
+    {
+      "severity": "error",
+      "code": "DUPLICATE_EVENT_ID",
+      "message": "Duplicate event id 'event-002' detected in score.",
+      "node_id": "measure-001",
+      "related_node_ids": [
+        "event-002"
+      ]
+    },
+    {
+      "severity": "warning",
+      "code": "EVENT_VOICE_MISMATCH",
+      "message": "Event 'event-002' has voice=2, but container voice id 'v1' implies 1.",
+      "node_id": "measure-001",
+      "related_node_ids": [
+        "event-002"
+      ]
+    },
+    {
+      "severity": "error",
+      "code": "MEASURE_DURATION_UNDERFLOW",
+      "message": "Voice v1 underfills measure 1: expected 1, got 1/2.",
+      "node_id": "measure-001",
+      "related_node_ids": [
+        "event-001",
+        "event-002",
+        "event-002"
+      ]
+    }
+  ]
+}

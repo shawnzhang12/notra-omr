@@ -115,7 +115,13 @@ def _validate_measure(
             )
 
         expected_voice = _voice_id_number(voice.id)
-        actual = sum((event.duration.fraction for event in voice.events), start=Fraction(0, 1))
+        chord_anchor_duration: Fraction | None = None
+        active_tuplet_ratio: tuple[int, int] | None = None
+        active_slurs = 0
+        actual = sum(
+            (Fraction(0, 1) if isinstance(event, Note) and event.chord else event.duration.fraction)
+            for event in voice.events
+        )
 
         for event in voice.events:
             if event.id in seen_event_ids:
@@ -146,7 +152,46 @@ def _validate_measure(
                 )
 
             if isinstance(event, Note):
+                _validate_note_chord_group(
+                    event, voice.id, measure.id, report, chord_anchor_duration
+                )
+                if not event.chord:
+                    chord_anchor_duration = event.duration.fraction
+                _validate_note_tuplet(event, voice.id, measure.id, report, active_tuplet_ratio)
+                active_tuplet_ratio = _next_active_tuplet_ratio(event, active_tuplet_ratio)
+                active_slurs = _validate_note_slurs(
+                    event,
+                    voice.id,
+                    measure.id,
+                    report,
+                    active_slurs,
+                )
                 _validate_note_ties(event, voice.id, measure.id, report, active_ties)
+
+        if active_tuplet_ratio is not None:
+            report.add(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    code="UNCLOSED_TUPLET_AT_MEASURE_END",
+                    message=(
+                        f"Voice {voice.id!r} ends measure {measure.number} with an open tuplet "
+                        f"ratio {active_tuplet_ratio[0]}:{active_tuplet_ratio[1]}."
+                    ),
+                    node_id=measure.id,
+                )
+            )
+        if active_slurs > 0:
+            report.add(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    code="UNCLOSED_SLUR_AT_MEASURE_END",
+                    message=(
+                        f"Voice {voice.id!r} ends measure {measure.number} with {active_slurs} "
+                        "unclosed slur marker(s)."
+                    ),
+                    node_id=measure.id,
+                )
+            )
 
         if actual == expected:
             continue
@@ -259,6 +304,169 @@ def _validate_note_ties(
                 )
             )
         active_ties.add(tie_key)
+
+
+def _validate_note_chord_group(
+    note: Note,
+    voice_id: str,
+    measure_id: str,
+    report: ValidationReport,
+    chord_anchor_duration: Fraction | None,
+) -> None:
+    if not note.chord:
+        return
+    if chord_anchor_duration is None:
+        report.add(
+            ValidationIssue(
+                severity=Severity.ERROR,
+                code="CHORD_WITHOUT_ANCHOR",
+                message=(
+                    f"Note {note.id!r} is marked as chord tone without a preceding anchor "
+                    f"note in voice {voice_id!r}."
+                ),
+                node_id=measure_id,
+                related_node_ids=(note.id,),
+            )
+        )
+        return
+    if note.duration.fraction > chord_anchor_duration:
+        report.add(
+            ValidationIssue(
+                severity=Severity.ERROR,
+                code="CHORD_DURATION_EXCEEDS_ANCHOR",
+                message=(
+                    f"Chord tone {note.id!r} duration {note.duration.fraction} exceeds anchor "
+                    f"duration {chord_anchor_duration} in voice {voice_id!r}."
+                ),
+                node_id=measure_id,
+                related_node_ids=(note.id,),
+            )
+        )
+
+
+def _validate_note_tuplet(
+    note: Note,
+    voice_id: str,
+    measure_id: str,
+    report: ValidationReport,
+    active_tuplet_ratio: tuple[int, int] | None,
+) -> None:
+    if note.tuplet is None:
+        if active_tuplet_ratio is not None and note.tuplet_ratio is None:
+            report.add(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    code="MISSING_TUPLET_RATIO_IN_ACTIVE_GROUP",
+                    message=(
+                        f"Note {note.id!r} in voice {voice_id!r} is inside an active tuplet "
+                        "group but lacks tuplet_ratio."
+                    ),
+                    node_id=measure_id,
+                    related_node_ids=(note.id,),
+                )
+            )
+        return
+
+    if note.tuplet == "start":
+        if active_tuplet_ratio is not None:
+            report.add(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    code="TUPLET_START_WHILE_OPEN",
+                    message=f"Note {note.id!r} starts a new tuplet while one is already open.",
+                    node_id=measure_id,
+                    related_node_ids=(note.id,),
+                )
+            )
+        if note.tuplet_ratio is None:
+            report.add(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    code="TUPLET_START_MISSING_RATIO",
+                    message=f"Tuplet start on note {note.id!r} must define tuplet_ratio.",
+                    node_id=measure_id,
+                    related_node_ids=(note.id,),
+                )
+            )
+        return
+
+    if note.tuplet == "stop":
+        if active_tuplet_ratio is None:
+            report.add(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    code="TUPLET_STOP_WITHOUT_START",
+                    message=f"Tuplet stop on note {note.id!r} has no active tuplet to close.",
+                    node_id=measure_id,
+                    related_node_ids=(note.id,),
+                )
+            )
+            return
+        if note.tuplet_ratio is not None and note.tuplet_ratio != active_tuplet_ratio:
+            report.add(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    code="TUPLET_RATIO_MISMATCH",
+                    message=(
+                        f"Tuplet stop on note {note.id!r} has ratio {note.tuplet_ratio[0]}:"
+                        f"{note.tuplet_ratio[1]}, expected {active_tuplet_ratio[0]}:"
+                        f"{active_tuplet_ratio[1]}."
+                    ),
+                    node_id=measure_id,
+                    related_node_ids=(note.id,),
+                )
+            )
+
+
+def _next_active_tuplet_ratio(
+    note: Note,
+    active_tuplet_ratio: tuple[int, int] | None,
+) -> tuple[int, int] | None:
+    if note.tuplet == "start":
+        return note.tuplet_ratio
+    if note.tuplet == "stop":
+        return None
+    return active_tuplet_ratio
+
+
+def _validate_note_slurs(
+    note: Note,
+    voice_id: str,
+    measure_id: str,
+    report: ValidationReport,
+    active_slurs: int,
+) -> int:
+    updated = active_slurs
+    for marker in note.slurs:
+        if marker == "start":
+            updated += 1
+            continue
+        if marker == "continue":
+            if updated <= 0:
+                report.add(
+                    ValidationIssue(
+                        severity=Severity.ERROR,
+                        code="SLUR_CONTINUE_WITHOUT_START",
+                        message=f"Slur continue on note {note.id!r} without active slur.",
+                        node_id=measure_id,
+                        related_node_ids=(note.id,),
+                    )
+                )
+            continue
+        if marker == "stop":
+            if updated <= 0:
+                report.add(
+                    ValidationIssue(
+                        severity=Severity.ERROR,
+                        code="SLUR_STOP_WITHOUT_START",
+                        message=f"Slur stop on note {note.id!r} without active slur.",
+                        node_id=measure_id,
+                        related_node_ids=(note.id,),
+                    )
+                )
+                continue
+            updated -= 1
+    return updated
 
 
 def _note_pitch_key(note: Note) -> str:
