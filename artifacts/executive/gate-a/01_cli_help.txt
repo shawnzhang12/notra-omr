@@ -1,0 +1,15 @@
+usage: notra [-h] command ...
+
+Notra OMR command-line interface.
+
+positional arguments:
+  command
+    validate   Validate a Notra IR JSON file.
+    convert    Convert Notra IR to target formats.
+    render     Render notation files to image outputs.
+    inspect    Inspect a pipeline artifact directory.
+    diff       Compare two IR or export artifacts.
+    recognize  Run OMR recognition pipeline.
+
+options:
+  -h, --help   show this help message and exit

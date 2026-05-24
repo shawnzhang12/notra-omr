@@ -1,0 +1,42 @@
+{
+  "summary": {
+    "total": 3,
+    "errors": 1,
+    "warnings": 1,
+    "info": 1
+  },
+  "issues": [
+    {
+      "severity": "info",
+      "code": "INFO_CASE",
+      "message": "Informational note."
+    },
+    {
+      "severity": "warning",
+      "code": "WARN_CASE",
+      "message": "Potential issue."
+    },
+    {
+      "severity": "error",
+      "code": "MEASURE_DURATION_OVERFLOW",
+      "message": "Voice duration exceeds the measure budget by 1/8.",
+      "node_id": "measure-007",
+      "related_node_ids": [
+        "event-031",
+        "event-032"
+      ],
+      "provenance": {
+        "source": "fixture:m008_ties",
+        "producer": "validator",
+        "page": 1,
+        "bbox": {
+          "x0": 320.0,
+          "y0": 180.0,
+          "x1": 410.0,
+          "y1": 260.0
+        },
+        "confidence": 0.99
+      }
+    }
+  ]
+}

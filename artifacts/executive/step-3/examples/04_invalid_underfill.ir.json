@@ -1,0 +1,78 @@
+{
+  "ir_version": "0.1.0",
+  "id": "score-002",
+  "title": "Three Quarters Underfill",
+  "parts": [
+    {
+      "id": "P1",
+      "name": "Piano RH",
+      "measures": [
+        {
+          "id": "measure-001",
+          "number": 1,
+          "voices": [
+            {
+              "id": "v1",
+              "events": [
+                {
+                  "kind": "note",
+                  "id": "event-001",
+                  "pitch": {
+                    "step": "C",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 4
+                  },
+                  "voice": 1
+                },
+                {
+                  "kind": "note",
+                  "id": "event-002",
+                  "pitch": {
+                    "step": "D",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 4
+                  },
+                  "voice": 1
+                },
+                {
+                  "kind": "note",
+                  "id": "event-003",
+                  "pitch": {
+                    "step": "E",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 4
+                  },
+                  "voice": 1
+                }
+              ]
+            }
+          ],
+          "attributes": {
+            "clef": {
+              "sign": "G",
+              "line": 2
+            },
+            "key": {
+              "fifths": 0,
+              "mode": "major"
+            },
+            "time": {
+              "beats": 4,
+              "beat_type": 4
+            },
+            "divisions": 4
+          }
+        }
+      ]
+    }
+  ]
+}

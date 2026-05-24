@@ -1,0 +1,13 @@
+{
+  "source": "fixture:m002_four_quarters",
+  "producer": "manual_fixture",
+  "page": 1,
+  "bbox": {
+    "x0": 100.0,
+    "y0": 200.0,
+    "x1": 120.0,
+    "y1": 220.0
+  },
+  "confidence": 1.0,
+  "notes": "golden fixture"
+}

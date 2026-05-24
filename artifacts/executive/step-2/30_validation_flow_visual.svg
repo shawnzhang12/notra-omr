@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="860" viewBox="0 0 1400 860">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#eff6ff"/>
+      <stop offset="100%" stop-color="#f0fdfa"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#0f172a"/>
+    </marker>
+    <style>
+      .title { font: 700 36px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 20px 'Segoe UI', Arial, sans-serif; fill: #334155; }
+      .label { font: 600 18px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .mono { font: 600 17px 'Consolas', 'Menlo', monospace; fill: #0f172a; }
+      .hint { font: 500 15px 'Segoe UI', Arial, sans-serif; fill: #475569; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="860" fill="url(#bg)"/>
+
+  <text x="60" y="76" class="title">Step 2 Validation Issue Flow</text>
+  <text x="60" y="110" class="subtitle">Structured report model ready for CLI, CI, and viewer consumption</text>
+
+  <g transform="translate(70,170)">
+    <rect x="0" y="0" width="1240" height="620" rx="20" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+
+    <rect x="70" y="230" width="280" height="140" rx="14" fill="#e2e8f0" stroke="#475569" stroke-width="3"/>
+    <text x="105" y="285" class="label">IR Node</text>
+    <text x="105" y="320" class="mono">measure-007</text>
+
+    <rect x="460" y="190" width="300" height="220" rx="14" fill="#fee2e2" stroke="#dc2626" stroke-width="3"/>
+    <text x="495" y="240" class="label">ValidationIssue</text>
+    <text x="495" y="275" class="mono">severity: error</text>
+    <text x="495" y="305" class="mono">code: MEASURE_...</text>
+    <text x="495" y="335" class="mono">node_id: measure-007</text>
+    <text x="495" y="365" class="mono">related: [event-031]</text>
+
+    <rect x="870" y="140" width="300" height="320" rx="14" fill="#dcfce7" stroke="#16a34a" stroke-width="3"/>
+    <text x="905" y="190" class="label">ValidationReport</text>
+    <text x="905" y="235" class="mono">summary.total = 3</text>
+    <text x="905" y="265" class="mono">summary.errors = 1</text>
+    <text x="905" y="295" class="mono">summary.warnings = 1</text>
+    <text x="905" y="325" class="mono">summary.info = 1</text>
+    <text x="905" y="375" class="hint">JSON-ready for CLI output</text>
+    <text x="905" y="400" class="hint">and web artifact viewer.</text>
+
+    <line x1="350" y1="300" x2="450" y2="300" stroke="#0f172a" stroke-width="3" marker-end="url(#arrow)"/>
+    <line x1="760" y1="300" x2="860" y2="300" stroke="#0f172a" stroke-width="3" marker-end="url(#arrow)"/>
+
+    <text x="90" y="530" class="hint">Impact: diagnostics are machine-readable, stable, and link directly to source nodes for correction workflows.</text>
+  </g>
+</svg>

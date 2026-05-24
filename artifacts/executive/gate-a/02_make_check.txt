@@ -1,0 +1,19 @@
+uv run ruff check .
+All checks passed!
+uv run mypy .
+Success: no issues found in 101 source files
+uv run pytest
+============================= test session starts ==============================
+platform linux -- Python 3.12.13, pytest-9.0.3, pluggy-1.6.0
+rootdir: /var/home/shawn/Projects/notra-omr
+configfile: pyproject.toml
+testpaths: tests
+collected 14 items
+
+tests/unit/test_errors.py ...                                            [ 21%]
+tests/unit/test_geometry.py .....                                        [ 57%]
+tests/unit/test_ids.py ...                                               [ 78%]
+tests/unit/test_provenance.py ..                                         [ 92%]
+tests/unit/test_smoke.py .                                               [100%]
+
+============================== 14 passed in 0.02s ==============================

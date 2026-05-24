@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "notra-omr"
+version = "0.1.0a1"
+description = "MusicXML-first optical music recognition toolkit for printed sheet music."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Notra Contributors" }]
+keywords = [
+    "optical-music-recognition",
+    "omr",
+    "musicxml",
+    "music-notation",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+dependencies = []
+
+[project.scripts]
+notra = "notra.cli.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["notra"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["notra", "scripts", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.1.0",
+    "pre-commit>=4.6.0",
+    "pytest>=9.0.3",
+    "ruff>=0.15.14",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["notra", "scripts", "tests"]
+warn_unused_configs = true
+check_untyped_defs = true
+ignore_missing_imports = true

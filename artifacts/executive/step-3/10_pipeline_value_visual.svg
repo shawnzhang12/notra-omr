@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#f0fdf4"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#0f172a"/>
+    </marker>
+    <style>
+      .title { font: 700 38px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 20px 'Segoe UI', Arial, sans-serif; fill: #334155; }
+      .label { font: 700 19px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .mono { font: 600 16px 'Consolas', 'Menlo', monospace; fill: #0f172a; }
+      .hint { font: 500 15px 'Segoe UI', Arial, sans-serif; fill: #475569; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1440" height="900" fill="url(#bg)"/>
+
+  <text x="60" y="78" class="title">From Notes to OMR Value: First Deterministic Spine</text>
+  <text x="60" y="114" class="subtitle">Everything downstream (models, ranking, correction UI) now has a stable symbolic contract</text>
+
+  <g transform="translate(70,180)">
+    <rect x="0" y="0" width="1300" height="650" rx="22" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+
+    <rect x="50" y="220" width="240" height="170" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="3"/>
+    <text x="80" y="280" class="label">IR JSON</text>
+    <text x="80" y="315" class="mono">note C4 1/4</text>
+    <text x="80" y="340" class="mono">note D4 1/4</text>
+    <text x="80" y="365" class="mono">note E4 1/4</text>
+
+    <rect x="380" y="220" width="260" height="170" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="3"/>
+    <text x="410" y="280" class="label">Validation</text>
+    <text x="410" y="315" class="mono">expected: 4/4</text>
+    <text x="410" y="340" class="mono">actual: 4/4</text>
+    <text x="410" y="365" class="mono">errors: 0</text>
+
+    <rect x="730" y="220" width="250" height="170" rx="16" fill="#fef3c7" stroke="#d97706" stroke-width="3"/>
+    <text x="760" y="280" class="label">MusicXML</text>
+    <text x="760" y="315" class="mono">&lt;note&gt;...&lt;/note&gt;</text>
+    <text x="760" y="340" class="mono">&lt;duration&gt;4&lt;/duration&gt;</text>
+    <text x="760" y="365" class="mono">&lt;type&gt;quarter&lt;/type&gt;</text>
+
+    <rect x="1070" y="220" width="180" height="170" rx="16" fill="#fee2e2" stroke="#dc2626" stroke-width="3"/>
+    <text x="1098" y="280" class="label">Viewer /</text>
+    <text x="1098" y="307" class="label">Editor</text>
+    <text x="1098" y="340" class="hint">Next stage</text>
+
+    <line x1="290" y1="305" x2="370" y2="305" stroke="#0f172a" stroke-width="4" marker-end="url(#arrow)"/>
+    <line x1="640" y1="305" x2="720" y2="305" stroke="#0f172a" stroke-width="4" marker-end="url(#arrow)"/>
+    <line x1="980" y1="305" x2="1060" y2="305" stroke="#0f172a" stroke-width="4" marker-end="url(#arrow)"/>
+
+    <rect x="70" y="460" width="1180" height="130" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+    <text x="100" y="510" class="label">Why This Matters for Best-in-Class OSS OMR</text>
+    <text x="100" y="545" class="hint">Models can now be judged by semantic correctness, not vibes. Every output is traceable, testable, and exportable.</text>
+  </g>
+</svg>

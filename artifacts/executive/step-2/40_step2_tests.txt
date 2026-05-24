@@ -1,0 +1,12 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.13, pytest-9.0.3, pluggy-1.6.0
+rootdir: /var/home/shawn/Projects/notra-omr
+configfile: pyproject.toml
+collected 13 items
+
+tests/unit/test_geometry.py .....                                        [ 38%]
+tests/unit/test_ids.py ...                                               [ 61%]
+tests/unit/test_provenance.py ..                                         [ 76%]
+tests/unit/test_errors.py ...                                            [100%]
+
+============================== 13 passed in 0.01s ==============================
