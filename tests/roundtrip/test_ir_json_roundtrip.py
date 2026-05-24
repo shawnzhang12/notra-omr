@@ -17,3 +17,14 @@ def test_ir_json_roundtrip_fixture() -> None:
     reparsed = score_from_json(payload)
 
     assert structurally_equal(score, reparsed)
+
+
+def test_ir_json_roundtrip_complex_fixture() -> None:
+    fixture_path = Path("tests/fixtures/scores/m010_complex_showcase/expected.ir.json")
+    source = fixture_path.read_text(encoding="utf-8")
+
+    score = score_from_json(source)
+    payload = score_to_json(score, indent=2)
+    reparsed = score_from_json(payload)
+
+    assert structurally_equal(score, reparsed)

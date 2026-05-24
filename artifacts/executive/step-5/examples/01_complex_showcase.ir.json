@@ -1,0 +1,273 @@
+{
+  "ir_version": "0.1.0",
+  "id": "score-010",
+  "title": "Complex Showcase",
+  "parts": [
+    {
+      "id": "P1",
+      "name": "Showcase Part",
+      "measures": [
+        {
+          "id": "measure-001",
+          "number": 1,
+          "attributes": {
+            "clef": {
+              "sign": "G",
+              "line": 2
+            },
+            "key": {
+              "fifths": 0,
+              "mode": "major"
+            },
+            "time": {
+              "beats": 4,
+              "beat_type": 4
+            },
+            "divisions": 24
+          },
+          "directions": [
+            {
+              "id": "dir-001",
+              "kind": "tempo",
+              "value": "Allegro",
+              "placement": "above"
+            },
+            {
+              "id": "dir-002",
+              "kind": "rehearsal",
+              "value": "A",
+              "placement": "above"
+            },
+            {
+              "id": "dir-003",
+              "kind": "dynamic",
+              "value": "mf",
+              "placement": "below"
+            },
+            {
+              "id": "dir-004",
+              "kind": "words",
+              "value": "dolce",
+              "placement": "above"
+            }
+          ],
+          "voices": [
+            {
+              "id": "v1",
+              "events": [
+                {
+                  "kind": "note",
+                  "id": "event-001",
+                  "pitch": {
+                    "step": "C",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 4
+                  },
+                  "voice": 1,
+                  "ties": [
+                    "start"
+                  ],
+                  "slurs": [
+                    "start"
+                  ],
+                  "articulations": [
+                    "staccato"
+                  ],
+                  "lyric": "Shine"
+                },
+                {
+                  "kind": "note",
+                  "id": "event-002",
+                  "pitch": {
+                    "step": "E",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 4
+                  },
+                  "voice": 1,
+                  "chord": true,
+                  "articulations": [
+                    "accent"
+                  ]
+                },
+                {
+                  "kind": "note",
+                  "id": "event-003",
+                  "pitch": {
+                    "step": "G",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 8
+                  },
+                  "voice": 1,
+                  "beams": [
+                    "begin"
+                  ],
+                  "tuplet": "start",
+                  "tuplet_ratio": {
+                    "actual_notes": 3,
+                    "normal_notes": 2
+                  }
+                },
+                {
+                  "kind": "note",
+                  "id": "event-004",
+                  "pitch": {
+                    "step": "A",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 8
+                  },
+                  "voice": 1,
+                  "beams": [
+                    "continue"
+                  ],
+                  "tuplet_ratio": {
+                    "actual_notes": 3,
+                    "normal_notes": 2
+                  },
+                  "lyric": "bright"
+                },
+                {
+                  "kind": "note",
+                  "id": "event-005",
+                  "pitch": {
+                    "step": "B",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 8
+                  },
+                  "voice": 1,
+                  "beams": [
+                    "end"
+                  ],
+                  "tuplet": "stop",
+                  "tuplet_ratio": {
+                    "actual_notes": 3,
+                    "normal_notes": 2
+                  },
+                  "slurs": [
+                    "stop"
+                  ],
+                  "articulations": [
+                    "tenuto"
+                  ]
+                },
+                {
+                  "kind": "rest",
+                  "id": "event-006",
+                  "duration": {
+                    "numerator": 3,
+                    "denominator": 8
+                  },
+                  "voice": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "measure-002",
+          "number": 2,
+          "directions": [
+            {
+              "id": "dir-005",
+              "kind": "dynamic",
+              "value": "f",
+              "placement": "below"
+            },
+            {
+              "id": "dir-006",
+              "kind": "words",
+              "value": "rit.",
+              "placement": "above"
+            }
+          ],
+          "voices": [
+            {
+              "id": "v1",
+              "events": [
+                {
+                  "kind": "note",
+                  "id": "event-007",
+                  "pitch": {
+                    "step": "C",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 4
+                  },
+                  "voice": 1,
+                  "ties": [
+                    "stop"
+                  ],
+                  "lyric": "ly"
+                },
+                {
+                  "kind": "note",
+                  "id": "event-008",
+                  "pitch": {
+                    "step": "F",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 4
+                  },
+                  "voice": 1,
+                  "articulations": [
+                    "strong-accent"
+                  ]
+                },
+                {
+                  "kind": "note",
+                  "id": "event-009",
+                  "pitch": {
+                    "step": "E",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 4
+                  },
+                  "voice": 1,
+                  "slurs": [
+                    "start"
+                  ]
+                },
+                {
+                  "kind": "note",
+                  "id": "event-010",
+                  "pitch": {
+                    "step": "D",
+                    "octave": 4
+                  },
+                  "duration": {
+                    "numerator": 1,
+                    "denominator": 4
+                  },
+                  "voice": 1,
+                  "slurs": [
+                    "stop"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

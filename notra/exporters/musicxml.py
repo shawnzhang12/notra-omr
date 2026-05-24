@@ -6,7 +6,7 @@ from fractions import Fraction
 from math import gcd
 from xml.etree import ElementTree as ET
 
-from notra.ir.measure import MeasureAttributes, Voice
+from notra.ir.measure import Direction, MeasureAttributes, Voice
 from notra.ir.note import Duration, Note
 from notra.ir.rest import Rest
 from notra.ir.score import Part, Score
@@ -39,6 +39,9 @@ def _append_part_measures(part_elem: ET.Element, part: Part, default_divisions: 
 
         if index == 0 or measure.attributes is not None:
             _append_attributes(measure_elem, measure.attributes, default_divisions)
+
+        for direction in measure.directions:
+            _append_direction(measure_elem, direction)
 
         for voice_index, voice in enumerate(measure.voices, start=1):
             _append_voice_events(measure_elem, voice, voice_index, default_divisions)
@@ -81,7 +84,9 @@ def _append_voice_events(
     voice_number = _voice_number(voice.id, fallback_voice)
 
     for event in voice.events:
-        note_elem = ET.SubElement(measure_elem, "note")
+        note_elem = ET.SubElement(measure_elem, "note", id=event.id)
+        if isinstance(event, Note) and event.chord:
+            ET.SubElement(note_elem, "chord")
         if isinstance(event, Rest):
             ET.SubElement(note_elem, "rest")
         elif isinstance(event, Note):
@@ -90,7 +95,7 @@ def _append_voice_events(
             if event.pitch.alter != 0:
                 ET.SubElement(pitch_elem, "alter").text = str(event.pitch.alter)
             ET.SubElement(pitch_elem, "octave").text = str(event.pitch.octave)
-            _append_ties(note_elem, event)
+            _append_note_ties(note_elem, event)
 
         ET.SubElement(note_elem, "duration").text = str(_duration_units(event.duration, divisions))
         ET.SubElement(note_elem, "voice").text = str(event.voice or voice_number)
@@ -100,18 +105,94 @@ def _append_voice_events(
         for _ in range(dot_count):
             ET.SubElement(note_elem, "dot")
 
+        if isinstance(event, Note):
+            _append_time_modification(note_elem, event)
+            _append_beams(note_elem, event)
+            _append_note_notations(note_elem, event)
+            _append_lyric(note_elem, event)
 
-def _append_ties(note_elem: ET.Element, note: Note) -> None:
+
+def _append_note_ties(note_elem: ET.Element, note: Note) -> None:
     if not note.ties:
         return
 
-    notation_elem: ET.Element | None = None
     for tie in note.ties:
+        if tie == "continue":
+            ET.SubElement(note_elem, "tie", type="stop")
+            ET.SubElement(note_elem, "tie", type="start")
+            continue
         if tie in {"start", "stop"}:
             ET.SubElement(note_elem, "tie", type=tie)
-            if notation_elem is None:
-                notation_elem = ET.SubElement(note_elem, "notations")
+
+
+def _append_time_modification(note_elem: ET.Element, note: Note) -> None:
+    if note.tuplet_ratio is None:
+        return
+    actual_notes, normal_notes = note.tuplet_ratio
+    mod = ET.SubElement(note_elem, "time-modification")
+    ET.SubElement(mod, "actual-notes").text = str(actual_notes)
+    ET.SubElement(mod, "normal-notes").text = str(normal_notes)
+
+
+def _append_beams(note_elem: ET.Element, note: Note) -> None:
+    for index, beam_value in enumerate(note.beams, start=1):
+        ET.SubElement(note_elem, "beam", number=str(index)).text = beam_value
+
+
+def _append_note_notations(note_elem: ET.Element, note: Note) -> None:
+    needs_notations = bool(note.ties or note.slurs or note.articulations or note.tuplet is not None)
+    if not needs_notations:
+        return
+
+    notation_elem = ET.SubElement(note_elem, "notations")
+
+    for tie in note.ties:
+        if tie == "continue":
+            ET.SubElement(notation_elem, "tied", type="stop")
+            ET.SubElement(notation_elem, "tied", type="start")
+            continue
+        if tie in {"start", "stop"}:
             ET.SubElement(notation_elem, "tied", type=tie)
+
+    for slur in note.slurs:
+        ET.SubElement(notation_elem, "slur", type=slur, number="1")
+
+    if note.articulations:
+        articulation_elem = ET.SubElement(notation_elem, "articulations")
+        for articulation in note.articulations:
+            ET.SubElement(articulation_elem, articulation)
+
+    if note.tuplet is not None:
+        ET.SubElement(notation_elem, "tuplet", type=note.tuplet, number="1")
+
+
+def _append_lyric(note_elem: ET.Element, note: Note) -> None:
+    if note.lyric is None:
+        return
+    lyric_elem = ET.SubElement(note_elem, "lyric")
+    ET.SubElement(lyric_elem, "text").text = note.lyric
+
+
+def _append_direction(measure_elem: ET.Element, direction: Direction) -> None:
+    direction_elem = ET.SubElement(
+        measure_elem,
+        "direction",
+        placement=direction.placement,
+        id=direction.id,
+    )
+    direction_type = ET.SubElement(direction_elem, "direction-type")
+
+    if direction.kind == "words":
+        ET.SubElement(direction_type, "words").text = direction.value
+    elif direction.kind == "tempo":
+        ET.SubElement(direction_type, "words").text = direction.value
+    elif direction.kind == "rehearsal":
+        ET.SubElement(direction_type, "rehearsal").text = direction.value
+    elif direction.kind == "dynamic":
+        dynamics = ET.SubElement(direction_type, "dynamics")
+        ET.SubElement(dynamics, direction.value)
+    else:  # pragma: no cover - defensive for future extension
+        ET.SubElement(direction_type, "words").text = direction.value
 
 
 def _duration_units(duration: Duration, divisions: int) -> int:

@@ -7,7 +7,7 @@ import json
 from notra.ir.barline import Barline
 from notra.ir.clef import Clef
 from notra.ir.key import KeySignature
-from notra.ir.measure import Measure, MeasureAttributes, Voice
+from notra.ir.measure import Direction, Measure, MeasureAttributes, Voice
 from notra.ir.note import Duration, Note, Pitch
 from notra.ir.rest import Rest
 from notra.ir.score import Part, Score
@@ -64,6 +64,8 @@ def _measure_from_dict(payload: object) -> Measure:
 
     barline_value = measure_payload.get("barline")
     barline = _barline_from_dict(barline_value) if barline_value is not None else None
+    directions_payload = _optional_list(measure_payload, "directions")
+    directions = [_direction_from_dict(item) for item in directions_payload]
 
     return Measure(
         id=_require_str(measure_payload, "id"),
@@ -71,6 +73,7 @@ def _measure_from_dict(payload: object) -> Measure:
         voices=voices,
         attributes=attributes,
         barline=barline,
+        directions=directions,
     )
 
 
@@ -91,6 +94,13 @@ def _event_from_dict(payload: object) -> Note | Rest:
             duration=_duration_from_dict(event_payload.get("duration")),
             voice=_optional_int(event_payload, "voice", default=1),
             ties=tuple(_optional_str_list(event_payload, "ties")),
+            slurs=tuple(_optional_str_list(event_payload, "slurs")),
+            articulations=tuple(_optional_str_list(event_payload, "articulations")),
+            beams=tuple(_optional_str_list(event_payload, "beams")),
+            lyric=_optional_str(event_payload, "lyric"),
+            chord=_optional_bool(event_payload, "chord", default=False),
+            tuplet=_optional_str(event_payload, "tuplet"),
+            tuplet_ratio=_optional_tuplet_ratio(event_payload, "tuplet_ratio"),
         )
     if kind == "rest":
         return Rest(
@@ -161,6 +171,16 @@ def _barline_from_dict(payload: object) -> Barline:
     return Barline(style=_require_str(barline_payload, "style"))
 
 
+def _direction_from_dict(payload: object) -> Direction:
+    direction_payload = _as_dict(payload, "direction")
+    return Direction(
+        id=_require_str(direction_payload, "id"),
+        kind=_require_str(direction_payload, "kind"),
+        value=_require_str(direction_payload, "value"),
+        placement=_optional_str(direction_payload, "placement", default="above") or "above",
+    )
+
+
 def _as_dict(value: object, name: str) -> dict[str, object]:
     if not isinstance(value, dict):
         raise ValueError(f"{name} must be an object")
@@ -193,6 +213,13 @@ def _require_list(payload: dict[str, object], key: str) -> list[object]:
     return value
 
 
+def _optional_list(payload: dict[str, object], key: str) -> list[object]:
+    value = payload.get(key, [])
+    if not isinstance(value, list):
+        raise ValueError(f"{key!r} must be a list when provided")
+    return value
+
+
 def _optional_int(
     payload: dict[str, object],
     key: str,
@@ -212,6 +239,40 @@ def _optional_int_or_none(payload: dict[str, object], key: str) -> int | None:
     if not isinstance(value, int):
         raise ValueError(f"{key!r} must be an integer when provided")
     return value
+
+
+def _optional_str(
+    payload: dict[str, object],
+    key: str,
+    *,
+    default: str | None = None,
+) -> str | None:
+    value = payload.get(key, default)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{key!r} must be a string when provided")
+    return value
+
+
+def _optional_bool(payload: dict[str, object], key: str, *, default: bool = False) -> bool:
+    value = payload.get(key, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"{key!r} must be a boolean when provided")
+    return value
+
+
+def _optional_tuplet_ratio(
+    payload: dict[str, object],
+    key: str,
+) -> tuple[int, int] | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    ratio_payload = _as_dict(value, key)
+    actual = _require_int(ratio_payload, "actual_notes")
+    normal = _require_int(ratio_payload, "normal_notes")
+    return (actual, normal)
 
 
 def _optional_str_list(payload: dict[str, object], key: str) -> list[str]:

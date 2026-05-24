@@ -15,15 +15,25 @@ def linearize(score: Score) -> list[str]:
         tokens.append(f"<part:{part.id}>")
         for measure in part.measures:
             tokens.append(f"<measure:{measure.number}>")
+            for direction in measure.directions:
+                tokens.append(f"direction:{direction.kind}:{direction.value}:{direction.placement}")
             for voice in measure.voices:
                 tokens.append(f"<voice:{voice.id}>")
                 for event in voice.events:
                     if isinstance(event, Note):
                         pitch = event.pitch
                         duration = event.duration
-                        tokens.append(
-                            f"note:{pitch.step}{pitch.alter:+d}:{pitch.octave}:{duration.numerator}/{duration.denominator}"
+                        note_token = (
+                            f"note:{pitch.step}{pitch.alter:+d}:{pitch.octave}:"
+                            f"{duration.numerator}/{duration.denominator}"
                         )
+                        if event.chord:
+                            note_token += ":chord"
+                        tokens.append(note_token)
+                        for articulation in event.articulations:
+                            tokens.append(f"articulation:{articulation}")
+                        if event.lyric is not None:
+                            tokens.append(f"lyric:{event.lyric}")
                     elif isinstance(event, Rest):
                         duration = event.duration
                         tokens.append(f"rest:{duration.numerator}/{duration.denominator}")

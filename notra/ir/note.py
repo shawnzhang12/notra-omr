@@ -6,9 +6,13 @@ from dataclasses import dataclass
 from fractions import Fraction
 
 from notra.core.provenance import Provenance
+from notra.ir.articulations import is_valid_articulation
 
 _VALID_STEPS = {"A", "B", "C", "D", "E", "F", "G"}
 _VALID_TIES = {"start", "stop", "continue"}
+_VALID_SPANNERS = {"start", "stop", "continue"}
+_VALID_BEAM_VALUES = {"begin", "continue", "end", "forward hook", "backward hook"}
+_VALID_TUPLET = {"start", "stop"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +71,13 @@ class Note:
     duration: Duration
     voice: int = 1
     ties: tuple[str, ...] = ()
+    slurs: tuple[str, ...] = ()
+    articulations: tuple[str, ...] = ()
+    beams: tuple[str, ...] = ()
+    lyric: str | None = None
+    chord: bool = False
+    tuplet: str | None = None
+    tuplet_ratio: tuple[int, int] | None = None
     provenance: Provenance | None = None
 
     def __post_init__(self) -> None:
@@ -77,6 +88,23 @@ class Note:
         for tie in self.ties:
             if tie not in _VALID_TIES:
                 raise ValueError(f"invalid tie: {tie!r}")
+        for slur in self.slurs:
+            if slur not in _VALID_SPANNERS:
+                raise ValueError(f"invalid slur marker: {slur!r}")
+        for articulation in self.articulations:
+            if not is_valid_articulation(articulation):
+                raise ValueError(f"invalid articulation: {articulation!r}")
+        for beam in self.beams:
+            if beam not in _VALID_BEAM_VALUES:
+                raise ValueError(f"invalid beam value: {beam!r}")
+        if self.lyric is not None and not self.lyric.strip():
+            raise ValueError("lyric must be non-empty when provided")
+        if self.tuplet is not None and self.tuplet not in _VALID_TUPLET:
+            raise ValueError("tuplet must be one of: start, stop")
+        if self.tuplet_ratio is not None:
+            actual, normal = self.tuplet_ratio
+            if actual <= 0 or normal <= 0:
+                raise ValueError("tuplet_ratio values must be > 0")
 
     def to_dict(self) -> dict[str, object]:
         """Serialize to a JSON-friendly dictionary."""
@@ -89,6 +117,23 @@ class Note:
         }
         if self.ties:
             payload["ties"] = list(self.ties)
+        if self.slurs:
+            payload["slurs"] = list(self.slurs)
+        if self.articulations:
+            payload["articulations"] = list(self.articulations)
+        if self.beams:
+            payload["beams"] = list(self.beams)
+        if self.lyric is not None:
+            payload["lyric"] = self.lyric
+        if self.chord:
+            payload["chord"] = True
+        if self.tuplet is not None:
+            payload["tuplet"] = self.tuplet
+        if self.tuplet_ratio is not None:
+            payload["tuplet_ratio"] = {
+                "actual_notes": self.tuplet_ratio[0],
+                "normal_notes": self.tuplet_ratio[1],
+            }
         if self.provenance is not None:
             payload["provenance"] = self.provenance.to_dict()
         return payload

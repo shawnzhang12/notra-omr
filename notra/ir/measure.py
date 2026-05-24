@@ -6,12 +6,15 @@ from dataclasses import dataclass, field
 
 from notra.ir.barline import Barline
 from notra.ir.clef import Clef
+from notra.ir.dynamics import is_valid_dynamic
 from notra.ir.key import KeySignature
 from notra.ir.note import Note
 from notra.ir.rest import Rest
 from notra.ir.time import TimeSignature
 
 Event = Note | Rest
+_VALID_DIRECTION_KIND = {"words", "dynamic", "tempo", "rehearsal"}
+_VALID_PLACEMENT = {"above", "below"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +61,39 @@ class Voice:
 
 
 @dataclass(frozen=True, slots=True)
+class Direction:
+    """Textual and symbolic directions anchored in a measure."""
+
+    id: str
+    kind: str
+    value: str
+    placement: str = "above"
+
+    def __post_init__(self) -> None:
+        if not self.id.strip():
+            raise ValueError("direction id must be non-empty")
+        if self.kind not in _VALID_DIRECTION_KIND:
+            raise ValueError(
+                f"direction kind must be one of {sorted(_VALID_DIRECTION_KIND)}, got {self.kind!r}"
+            )
+        if not self.value.strip():
+            raise ValueError("direction value must be non-empty")
+        if self.placement not in _VALID_PLACEMENT:
+            raise ValueError("direction placement must be 'above' or 'below'")
+        if self.kind == "dynamic" and not is_valid_dynamic(self.value):
+            raise ValueError(f"unsupported dynamic value: {self.value!r}")
+
+    def to_dict(self) -> dict[str, str]:
+        """Serialize to a JSON-friendly dictionary."""
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "value": self.value,
+            "placement": self.placement,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class Measure:
     """One logical measure containing one or more voices."""
 
@@ -66,6 +102,7 @@ class Measure:
     voices: list[Voice]
     attributes: MeasureAttributes | None = None
     barline: Barline | None = None
+    directions: list[Direction] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.id.strip():
@@ -86,4 +123,6 @@ class Measure:
             payload["attributes"] = self.attributes.to_dict()
         if self.barline is not None:
             payload["barline"] = self.barline.to_dict()
+        if self.directions:
+            payload["directions"] = [direction.to_dict() for direction in self.directions]
         return payload
