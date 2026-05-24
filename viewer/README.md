@@ -25,3 +25,13 @@ The default loaded file is:
 2. Fallback: sequential mapping of note-like SVG groups to parsed MusicXML note order.
 
 This is enough for deterministic debugging and manual validation loops.
+
+## Duration display
+
+The table shows durations as:
+
+`<musicxml-type><dots> (<fraction-of-whole-note>)`
+
+Example: `quarter (1/4)`, `eighth. (3/16)`.
+
+Fractions are computed from MusicXML `<duration>` units and active `<divisions>` per measure.

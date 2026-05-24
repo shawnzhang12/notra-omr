@@ -26,59 +26,106 @@ function setStatus(text, ok = true) {
 function parseMusicXmlNotes(xmlText) {
   const parser = new DOMParser();
   const xml = parser.parseFromString(xmlText, "application/xml");
-  const notes = Array.from(xml.querySelectorAll("part > measure > note")).map((note, index) => {
-    const id = note.getAttribute("id") || `anon-note-${index + 1}`;
-    const isRest = !!note.querySelector("rest");
-    const step = note.querySelector("pitch > step")?.textContent || "R";
-    const alterRaw = note.querySelector("pitch > alter")?.textContent;
-    const alter = alterRaw ? Number(alterRaw) : 0;
-    const octave = note.querySelector("pitch > octave")?.textContent || "";
-    const duration = note.querySelector("duration")?.textContent || "?";
-    const ties = Array.from(note.querySelectorAll("tie")).map((node) => node.getAttribute("type"));
-    const slurs = Array.from(note.querySelectorAll("notations > slur")).map((node) =>
-      node.getAttribute("type")
-    );
-    const beams = Array.from(note.querySelectorAll("beam")).map((node) => node.textContent?.trim() || "");
-    const articulations = Array.from(note.querySelectorAll("notations > articulations > *")).map(
-      (node) => node.tagName
-    );
-    const lyric = note.querySelector("lyric > text")?.textContent || null;
-    const chord = !!note.querySelector("chord");
-    const tuplet = note.querySelector("notations > tuplet")?.getAttribute("type") || null;
+  const notes = [];
+  let index = 0;
 
-    const pitch = isRest
-      ? "rest"
-      : `${step}${alter === 0 ? "" : alter > 0 ? `+${alter}` : `${alter}`}${octave}`;
+  for (const part of Array.from(xml.querySelectorAll("part"))) {
+    let currentDivisions = 1;
+    for (const measure of Array.from(part.querySelectorAll(":scope > measure"))) {
+      const measureNo = measure.getAttribute("number") || "?";
+      const divisionsText = measure.querySelector(":scope > attributes > divisions")?.textContent;
+      if (divisionsText && Number.isFinite(Number(divisionsText)) && Number(divisionsText) > 0) {
+        currentDivisions = Number(divisionsText);
+      }
 
-    const flags = [
-      chord ? "chord" : null,
-      ties.length ? `ties:${ties.join("/")}` : null,
-      slurs.length ? `slurs:${slurs.join("/")}` : null,
-      beams.length ? `beams:${beams.join("/")}` : null,
-      tuplet ? `tuplet:${tuplet}` : null,
-      articulations.length ? `art:${articulations.join(",")}` : null,
-      lyric ? "lyric" : null,
-    ]
-      .filter(Boolean)
-      .join(" | ");
+      for (const note of Array.from(measure.querySelectorAll(":scope > note"))) {
+        index += 1;
+        const id = note.getAttribute("id") || `anon-note-${index}`;
+        const isRest = !!note.querySelector("rest");
+        const step = note.querySelector("pitch > step")?.textContent || "R";
+        const alterRaw = note.querySelector("pitch > alter")?.textContent;
+        const alter = alterRaw ? Number(alterRaw) : 0;
+        const octave = note.querySelector("pitch > octave")?.textContent || "";
+        const durationUnits = Number(note.querySelector("duration")?.textContent || "0");
+        const type = note.querySelector("type")?.textContent || "?";
+        const dotCount = note.querySelectorAll("dot").length;
+        const fraction = unitsToFraction(durationUnits, currentDivisions);
+        const duration = `${type}${dotCount ? ".".repeat(dotCount) : ""} (${fraction})`;
+        const ties = Array.from(note.querySelectorAll("tie")).map((node) => node.getAttribute("type"));
+        const slurs = Array.from(note.querySelectorAll("notations > slur")).map((node) =>
+          node.getAttribute("type")
+        );
+        const beams = Array.from(note.querySelectorAll("beam")).map((node) => node.textContent?.trim() || "");
+        const articulations = Array.from(note.querySelectorAll("notations > articulations > *")).map(
+          (node) => node.tagName
+        );
+        const lyric = note.querySelector("lyric > text")?.textContent || null;
+        const fingering = note.querySelector("notations > technical > fingering")?.textContent || null;
+        const chord = !!note.querySelector("chord");
+        const tuplet = note.querySelector("notations > tuplet")?.getAttribute("type") || null;
 
-    return {
-      id,
-      pitch,
-      duration,
-      lyric,
-      ties,
-      slurs,
-      beams,
-      tuplet,
-      articulations,
-      chord,
-      flags,
-      index,
-    };
-  });
+        const pitch = isRest
+          ? "rest"
+          : `${step}${alter === 0 ? "" : alter > 0 ? `+${alter}` : `${alter}`}${octave}`;
+
+        const flags = [
+          chord ? "chord" : null,
+          ties.length ? `ties:${ties.join("/")}` : null,
+          slurs.length ? `slurs:${slurs.join("/")}` : null,
+          beams.length ? `beams:${beams.join("/")}` : null,
+          tuplet ? `tuplet:${tuplet}` : null,
+          articulations.length ? `art:${articulations.join(",")}` : null,
+          lyric ? "lyric" : null,
+          fingering ? `fing:${fingering}` : null,
+        ]
+          .filter(Boolean)
+          .join(" | ");
+
+        notes.push({
+          id,
+          pitch,
+          duration,
+          durationUnits,
+          divisions: currentDivisions,
+          measure: measureNo,
+          lyric,
+          fingering,
+          ties,
+          slurs,
+          beams,
+          tuplet,
+          articulations,
+          chord,
+          flags,
+          index,
+        });
+      }
+    }
+  }
 
   return notes;
+}
+
+function unitsToFraction(units, divisions) {
+  if (!Number.isFinite(units) || !Number.isFinite(divisions) || divisions <= 0) {
+    return "?";
+  }
+  const numerator = units;
+  const denominator = divisions * 4;
+  const reduced = reduceFraction(numerator, denominator);
+  return `${reduced[0]}/${reduced[1]}`;
+}
+
+function reduceFraction(numerator, denominator) {
+  let a = Math.abs(numerator);
+  let b = Math.abs(denominator);
+  while (b !== 0) {
+    const t = b;
+    b = a % b;
+    a = t;
+  }
+  const gcd = a || 1;
+  return [numerator / gcd, denominator / gcd];
 }
 
 function escapeCssId(value) {
@@ -96,6 +143,7 @@ function renderNoteTable(notes) {
     row.dataset.noteId = note.id;
 
     row.innerHTML = `
+      <td>${note.measure}</td>
       <td>${note.id}</td>
       <td>${note.pitch}</td>
       <td>${note.duration}</td>
@@ -106,7 +154,8 @@ function renderNoteTable(notes) {
     dom.tableBody.appendChild(row);
   }
 
-  dom.stats.textContent = `${notes.length} notes parsed | ${state.svgLinkedCount} glyph links`;
+  const unlinked = Math.max(0, state.notes.length - state.svgLinkedCount);
+  dom.stats.textContent = `${notes.length}/${state.notes.length} shown | ${state.svgLinkedCount} linked | ${unlinked} unlinked`;
 }
 
 function clearSelection() {
