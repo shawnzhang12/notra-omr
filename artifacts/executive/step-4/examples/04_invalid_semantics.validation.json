@@ -1,0 +1,43 @@
+{
+  "summary": {
+    "total": 4,
+    "errors": 2,
+    "warnings": 2,
+    "info": 0
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "EVENT_VOICE_MISMATCH",
+      "message": "Event 'event-100' has voice=1, but container voice id 'v2' implies 2.",
+      "node_id": "measure-010",
+      "related_node_ids": [
+        "event-100"
+      ]
+    },
+    {
+      "severity": "error",
+      "code": "TIE_STOP_WITHOUT_START",
+      "message": "Note 'event-100' stops a tie that was never opened for pitch E+0:4.",
+      "node_id": "measure-010",
+      "related_node_ids": [
+        "event-100"
+      ]
+    },
+    {
+      "severity": "warning",
+      "code": "NON_MONOTONIC_MEASURE_ORDER",
+      "message": "Measure numbers are not strictly increasing in part P1: 10 -> 9.",
+      "node_id": "measure-009"
+    },
+    {
+      "severity": "error",
+      "code": "DUPLICATE_EVENT_ID",
+      "message": "Duplicate event id 'event-100' detected in score.",
+      "node_id": "measure-009",
+      "related_node_ids": [
+        "event-100"
+      ]
+    }
+  ]
+}

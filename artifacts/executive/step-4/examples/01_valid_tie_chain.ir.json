@@ -1,0 +1,67 @@
+{
+  "ir_version": "0.1.0",
+  "id": "score-010",
+  "title": "Valid Tie Chain",
+  "parts": [
+    {
+      "id": "P1",
+      "name": "Piano RH",
+      "measures": [
+        {
+          "id": "measure-001",
+          "number": 1,
+          "attributes": {
+            "time": { "beats": 4, "beat_type": 4 },
+            "divisions": 4
+          },
+          "voices": [
+            {
+              "id": "v1",
+              "events": [
+                {
+                  "kind": "note",
+                  "id": "event-001",
+                  "pitch": { "step": "C", "octave": 4 },
+                  "duration": { "numerator": 1, "denominator": 2 },
+                  "voice": 1,
+                  "ties": ["start"]
+                },
+                {
+                  "kind": "rest",
+                  "id": "event-002",
+                  "duration": { "numerator": 1, "denominator": 2 },
+                  "voice": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "measure-002",
+          "number": 2,
+          "voices": [
+            {
+              "id": "v1",
+              "events": [
+                {
+                  "kind": "note",
+                  "id": "event-003",
+                  "pitch": { "step": "C", "octave": 4 },
+                  "duration": { "numerator": 1, "denominator": 2 },
+                  "voice": 1,
+                  "ties": ["stop"]
+                },
+                {
+                  "kind": "rest",
+                  "id": "event-004",
+                  "duration": { "numerator": 1, "denominator": 2 },
+                  "voice": 1
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

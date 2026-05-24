@@ -1,0 +1,54 @@
+{
+  "ir_version": "0.1.0",
+  "id": "score-011",
+  "title": "Invalid Semantic Mix",
+  "parts": [
+    {
+      "id": "P1",
+      "name": "Piano RH",
+      "measures": [
+        {
+          "id": "measure-010",
+          "number": 10,
+          "attributes": {
+            "time": { "beats": 4, "beat_type": 4 },
+            "divisions": 4
+          },
+          "voices": [
+            {
+              "id": "v2",
+              "events": [
+                {
+                  "kind": "note",
+                  "id": "event-100",
+                  "pitch": { "step": "E", "octave": 4 },
+                  "duration": { "numerator": 1, "denominator": 1 },
+                  "voice": 1,
+                  "ties": ["stop"]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "measure-009",
+          "number": 9,
+          "voices": [
+            {
+              "id": "v1",
+              "events": [
+                {
+                  "kind": "note",
+                  "id": "event-100",
+                  "pitch": { "step": "F", "octave": 4 },
+                  "duration": { "numerator": 1, "denominator": 1 },
+                  "voice": 1
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
