@@ -6,9 +6,10 @@ This folder is optimized for fast maintainer validation.
 
 0. Open `ONE_MINUTE.md`.
 1. Open `gate-a/00_summary.md` for foundation/tooling status.
-2. Open `step-3/00_summary.md` for score semantics and real notation outputs.
-3. Open `step-4/00_summary.md` for expanded semantic validation rules.
-4. Check concrete examples in `step-3/examples/` and `step-4/examples/`.
+2. Open `step-5/00_summary.md` for IR functionality coverage.
+3. Open `step-6/00_summary.md` for semantic validation rules.
+4. Open `step-7/00_summary.md` for complex XML + viewer.
+5. Check concrete examples in `step-5/examples/`, `step-6/examples/`, and `step-7/examples/`.
 
 ## Artifact Organization
 
@@ -16,6 +17,9 @@ This folder is optimized for fast maintainer validation.
 - `step-2/`: core primitive implementation evidence.
 - `step-3/`: first real notation outputs (`IR -> validate -> MusicXML`).
 - `step-4/`: deeper semantic integrity checks and adversarial invalid cases.
+- `step-5/`: IR functionality expansion artifacts.
+- `step-6/`: validation semantics expansion artifacts.
+- `step-7/`: complex all-features XML and viewer delivery artifacts.
 
 ## Expected Use
 

@@ -1,0 +1,217 @@
+<?xml version='1.0' encoding='utf-8'?>
+<score-partwise version="4.0">
+  <work>
+    <work-title>Complex Showcase</work-title>
+  </work>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Showcase Part</part-name>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>24</divisions>
+        <key>
+          <fifths>0</fifths>
+          <mode>major</mode>
+        </key>
+        <time>
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+        </time>
+        <clef>
+          <sign>G</sign>
+          <line>2</line>
+        </clef>
+      </attributes>
+      <direction placement="above" id="dir-001">
+        <direction-type>
+          <words>Allegro</words>
+        </direction-type>
+      </direction>
+      <direction placement="above" id="dir-002">
+        <direction-type>
+          <rehearsal>A</rehearsal>
+        </direction-type>
+      </direction>
+      <direction placement="below" id="dir-003">
+        <direction-type>
+          <dynamics>
+            <mf />
+          </dynamics>
+        </direction-type>
+      </direction>
+      <direction placement="above" id="dir-004">
+        <direction-type>
+          <words>dolce</words>
+        </direction-type>
+      </direction>
+      <note id="event-001">
+        <pitch>
+          <step>C</step>
+          <octave>4</octave>
+        </pitch>
+        <tie type="start" />
+        <duration>8</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <notations>
+          <tied type="start" />
+          <slur type="start" number="1" />
+          <articulations>
+            <staccato />
+          </articulations>
+        </notations>
+        <lyric>
+          <text>Shine</text>
+        </lyric>
+      </note>
+      <note id="event-002">
+        <chord />
+        <pitch>
+          <step>E</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>8</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <notations>
+          <articulations>
+            <accent />
+          </articulations>
+        </notations>
+      </note>
+      <note id="event-003">
+        <pitch>
+          <step>G</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>4</duration>
+        <voice>1</voice>
+        <type>eighth</type>
+        <time-modification>
+          <actual-notes>3</actual-notes>
+          <normal-notes>2</normal-notes>
+        </time-modification>
+        <beam number="1">begin</beam>
+        <notations>
+          <tuplet type="start" number="1" />
+        </notations>
+      </note>
+      <note id="event-004">
+        <pitch>
+          <step>A</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>4</duration>
+        <voice>1</voice>
+        <type>eighth</type>
+        <time-modification>
+          <actual-notes>3</actual-notes>
+          <normal-notes>2</normal-notes>
+        </time-modification>
+        <beam number="1">continue</beam>
+        <lyric>
+          <text>bright</text>
+        </lyric>
+      </note>
+      <note id="event-005">
+        <pitch>
+          <step>B</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>4</duration>
+        <voice>1</voice>
+        <type>eighth</type>
+        <time-modification>
+          <actual-notes>3</actual-notes>
+          <normal-notes>2</normal-notes>
+        </time-modification>
+        <beam number="1">end</beam>
+        <notations>
+          <slur type="stop" number="1" />
+          <articulations>
+            <tenuto />
+          </articulations>
+          <tuplet type="stop" number="1" />
+        </notations>
+      </note>
+      <note id="event-006">
+        <rest />
+        <duration>12</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <dot />
+      </note>
+    </measure>
+    <measure number="2">
+      <direction placement="below" id="dir-005">
+        <direction-type>
+          <dynamics>
+            <f />
+          </dynamics>
+        </direction-type>
+      </direction>
+      <direction placement="above" id="dir-006">
+        <direction-type>
+          <words>rit.</words>
+        </direction-type>
+      </direction>
+      <note id="event-007">
+        <pitch>
+          <step>C</step>
+          <octave>4</octave>
+        </pitch>
+        <tie type="stop" />
+        <duration>8</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <notations>
+          <tied type="stop" />
+        </notations>
+        <lyric>
+          <text>ly</text>
+        </lyric>
+      </note>
+      <note id="event-008">
+        <pitch>
+          <step>F</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>8</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <notations>
+          <articulations>
+            <strong-accent />
+          </articulations>
+        </notations>
+      </note>
+      <note id="event-009">
+        <pitch>
+          <step>E</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>8</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <notations>
+          <slur type="start" number="1" />
+        </notations>
+      </note>
+      <note id="event-010">
+        <pitch>
+          <step>D</step>
+          <octave>4</octave>
+        </pitch>
+        <duration>8</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <notations>
+          <slur type="stop" number="1" />
+        </notations>
+      </note>
+    </measure>
+  </part>
+</score-partwise>

@@ -3,20 +3,23 @@
 ## Current State
 
 - Gate A: `APPROVED / VERIFIED`
-- Step 2: `IMPLEMENTED`
-- Step 3: `IMPLEMENTED / READY FOR GATE B VALIDATION`
-- Step 4: `IMPLEMENTED / READY FOR DEEP SEMANTIC VALIDATION`
+- Step 5: `IMPLEMENTED (IR functionality expansion)`
+- Step 6: `IMPLEMENTED (semantic validation expansion)`
+- Step 7: `IMPLEMENTED (complex XML + fast glyph-link viewer)`
 - Quality checks: `PASSING`
 
 ## What To Open (Order Matters)
 
 1. `gate-a/00_summary.md`
 2. `gate-a/02_make_check.txt`
-3. `step-4/00_summary.md`
-4. `step-4/examples/03_valid_tie_chain.validation.json`
-5. `step-4/examples/04_invalid_semantics.validation.json`
+1. `step-5/00_summary.md`
+2. `step-6/00_summary.md`
+3. `step-6/examples/02_invalid_step6_semantics.validation.json`
+4. `step-7/00_summary.md`
+5. `step-7/examples/02_complex_all_features.musicxml`
 
 ## Expected Decision
 
-- Approve Gate B for IR v0 shape + serialization behavior.
-- Challenge Step 4 semantic outputs and demand stricter edge-case handling where gaps remain.
+- Validate Step 5 feature coverage against real notation needs.
+- Grill Step 6 semantic issue codes and edge-case handling.
+- Run Step 7 viewer and verify glyph links map to note IDs.

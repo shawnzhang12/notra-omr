@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Notra Glyph-Link Viewer</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://www.verovio.org/javascript/latest/verovio-toolkit-wasm.js" defer></script>
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Notra Glyph-Link Viewer</h1>
+      <div class="controls">
+        <input
+          id="xml-path"
+          type="text"
+          value="../artifacts/executive/step-7/examples/02_complex_all_features.musicxml"
+          aria-label="MusicXML path"
+        />
+        <button id="load-btn" type="button">Load</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel left">
+        <h2>Note Index</h2>
+        <input id="filter" type="search" placeholder="Filter by id / pitch / lyric" />
+        <div id="stats" class="muted"></div>
+        <table id="note-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Pitch</th>
+              <th>Dur</th>
+              <th>Flags</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </aside>
+
+      <section class="panel center">
+        <h2>Rendered Score (Verovio)</h2>
+        <div id="status" class="muted">Waiting to load...</div>
+        <div id="notation" class="notation"></div>
+      </section>
+
+      <aside class="panel right">
+        <h2>Glyph Link</h2>
+        <div id="selection-empty" class="muted">Click a glyph or note row.</div>
+        <pre id="selection-json" hidden></pre>
+      </aside>
+    </main>
+  </body>
+</html>
