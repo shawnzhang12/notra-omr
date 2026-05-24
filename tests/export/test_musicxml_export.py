@@ -44,6 +44,8 @@ def test_musicxml_export_includes_step5_features() -> None:
     tuplets = root.findall(".//note/notations/tuplet")
     directions = root.findall(".//direction")
     dynamics = root.findall(".//direction/direction-type/dynamics")
+    fingerings = root.findall(".//note/notations/technical/fingering")
+    wedges = root.findall(".//direction/direction-type/wedge")
 
     assert chord_markers
     assert ties
@@ -54,6 +56,8 @@ def test_musicxml_export_includes_step5_features() -> None:
     assert tuplets
     assert directions
     assert dynamics
+    assert fingerings
+    assert wedges
 
     note_ids = [note.get("id") for note in root.findall(".//note")]
     assert "event-001" in note_ids

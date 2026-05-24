@@ -34,17 +34,22 @@ def export_score_to_musicxml(score: Score) -> str:
 
 
 def _append_part_measures(part_elem: ET.Element, part: Part, default_divisions: int) -> None:
+    current_divisions = default_divisions
     for index, measure in enumerate(part.measures):
         measure_elem = ET.SubElement(part_elem, "measure", number=str(measure.number))
 
         if index == 0 or measure.attributes is not None:
-            _append_attributes(measure_elem, measure.attributes, default_divisions)
+            current_divisions = _append_attributes(
+                measure_elem,
+                measure.attributes,
+                current_divisions,
+            )
 
         for direction in measure.directions:
             _append_direction(measure_elem, direction)
 
         for voice_index, voice in enumerate(measure.voices, start=1):
-            _append_voice_events(measure_elem, voice, voice_index, default_divisions)
+            _append_voice_events(measure_elem, voice, voice_index, current_divisions)
 
         if measure.barline is not None and measure.barline.style != "regular":
             ET.SubElement(measure_elem, "barline", location="right")
@@ -54,7 +59,7 @@ def _append_attributes(
     measure_elem: ET.Element,
     attributes: MeasureAttributes | None,
     default_divisions: int,
-) -> None:
+) -> int:
     attr_elem = ET.SubElement(measure_elem, "attributes")
     divisions = attributes.divisions if attributes and attributes.divisions else default_divisions
     ET.SubElement(attr_elem, "divisions").text = str(divisions)
@@ -73,6 +78,8 @@ def _append_attributes(
         clef_elem = ET.SubElement(attr_elem, "clef")
         ET.SubElement(clef_elem, "sign").text = attributes.clef.sign
         ET.SubElement(clef_elem, "line").text = str(attributes.clef.line)
+
+    return divisions
 
 
 def _append_voice_events(
@@ -165,6 +172,10 @@ def _append_note_notations(note_elem: ET.Element, note: Note) -> None:
     if note.tuplet is not None:
         ET.SubElement(notation_elem, "tuplet", type=note.tuplet, number="1")
 
+    if note.fingering is not None:
+        technical_elem = ET.SubElement(notation_elem, "technical")
+        ET.SubElement(technical_elem, "fingering").text = note.fingering
+
 
 def _append_lyric(note_elem: ET.Element, note: Note) -> None:
     if note.lyric is None:
@@ -191,6 +202,8 @@ def _append_direction(measure_elem: ET.Element, direction: Direction) -> None:
     elif direction.kind == "dynamic":
         dynamics = ET.SubElement(direction_type, "dynamics")
         ET.SubElement(dynamics, direction.value)
+    elif direction.kind == "wedge":
+        ET.SubElement(direction_type, "wedge", type=direction.value, number=str(direction.number))
     else:  # pragma: no cover - defensive for future extension
         ET.SubElement(direction_type, "words").text = direction.value
 

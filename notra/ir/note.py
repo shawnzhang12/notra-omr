@@ -75,6 +75,7 @@ class Note:
     articulations: tuple[str, ...] = ()
     beams: tuple[str, ...] = ()
     lyric: str | None = None
+    fingering: str | None = None
     chord: bool = False
     tuplet: str | None = None
     tuplet_ratio: tuple[int, int] | None = None
@@ -99,6 +100,8 @@ class Note:
                 raise ValueError(f"invalid beam value: {beam!r}")
         if self.lyric is not None and not self.lyric.strip():
             raise ValueError("lyric must be non-empty when provided")
+        if self.fingering is not None and not self.fingering.strip():
+            raise ValueError("fingering must be non-empty when provided")
         if self.tuplet is not None and self.tuplet not in _VALID_TUPLET:
             raise ValueError("tuplet must be one of: start, stop")
         if self.tuplet_ratio is not None:
@@ -125,6 +128,8 @@ class Note:
             payload["beams"] = list(self.beams)
         if self.lyric is not None:
             payload["lyric"] = self.lyric
+        if self.fingering is not None:
+            payload["fingering"] = self.fingering
         if self.chord:
             payload["chord"] = True
         if self.tuplet is not None:

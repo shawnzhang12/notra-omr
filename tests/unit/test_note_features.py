@@ -16,6 +16,7 @@ def test_note_supports_step5_fields() -> None:
         articulations=("staccato",),
         beams=("begin",),
         lyric="la",
+        fingering="2",
         chord=False,
         tuplet="start",
         tuplet_ratio=(3, 2),
@@ -27,6 +28,7 @@ def test_note_supports_step5_fields() -> None:
     assert payload["articulations"] == ["staccato"]
     assert payload["beams"] == ["begin"]
     assert payload["lyric"] == "la"
+    assert payload["fingering"] == "2"
     assert payload["tuplet"] == "start"
 
 

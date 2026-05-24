@@ -47,13 +47,18 @@
           <words>dolce</words>
         </direction-type>
       </direction>
+      <direction placement="below" id="dir-007">
+        <direction-type>
+          <wedge type="crescendo" number="1" />
+        </direction-type>
+      </direction>
       <note id="event-001">
         <pitch>
           <step>C</step>
           <octave>4</octave>
         </pitch>
         <tie type="start" />
-        <duration>8</duration>
+        <duration>24</duration>
         <voice>1</voice>
         <type>quarter</type>
         <notations>
@@ -62,6 +67,9 @@
           <articulations>
             <staccato />
           </articulations>
+          <technical>
+            <fingering>1</fingering>
+          </technical>
         </notations>
         <lyric>
           <text>Shine</text>
@@ -73,13 +81,16 @@
           <step>E</step>
           <octave>4</octave>
         </pitch>
-        <duration>8</duration>
+        <duration>24</duration>
         <voice>1</voice>
         <type>quarter</type>
         <notations>
           <articulations>
             <accent />
           </articulations>
+          <technical>
+            <fingering>3</fingering>
+          </technical>
         </notations>
       </note>
       <note id="event-003">
@@ -87,7 +98,7 @@
           <step>G</step>
           <octave>4</octave>
         </pitch>
-        <duration>4</duration>
+        <duration>12</duration>
         <voice>1</voice>
         <type>eighth</type>
         <time-modification>
@@ -104,7 +115,7 @@
           <step>A</step>
           <octave>4</octave>
         </pitch>
-        <duration>4</duration>
+        <duration>12</duration>
         <voice>1</voice>
         <type>eighth</type>
         <time-modification>
@@ -121,7 +132,7 @@
           <step>B</step>
           <octave>4</octave>
         </pitch>
-        <duration>4</duration>
+        <duration>12</duration>
         <voice>1</voice>
         <type>eighth</type>
         <time-modification>
@@ -135,11 +146,14 @@
             <tenuto />
           </articulations>
           <tuplet type="stop" number="1" />
+          <technical>
+            <fingering>4</fingering>
+          </technical>
         </notations>
       </note>
       <note id="event-006">
         <rest />
-        <duration>12</duration>
+        <duration>36</duration>
         <voice>1</voice>
         <type>quarter</type>
         <dot />
@@ -158,17 +172,25 @@
           <words>rit.</words>
         </direction-type>
       </direction>
+      <direction placement="below" id="dir-008">
+        <direction-type>
+          <wedge type="stop" number="1" />
+        </direction-type>
+      </direction>
       <note id="event-007">
         <pitch>
           <step>C</step>
           <octave>4</octave>
         </pitch>
         <tie type="stop" />
-        <duration>8</duration>
+        <duration>24</duration>
         <voice>1</voice>
         <type>quarter</type>
         <notations>
           <tied type="stop" />
+          <technical>
+            <fingering>1</fingering>
+          </technical>
         </notations>
         <lyric>
           <text>ly</text>
@@ -179,13 +201,16 @@
           <step>F</step>
           <octave>4</octave>
         </pitch>
-        <duration>8</duration>
+        <duration>24</duration>
         <voice>1</voice>
         <type>quarter</type>
         <notations>
           <articulations>
             <strong-accent />
           </articulations>
+          <technical>
+            <fingering>2</fingering>
+          </technical>
         </notations>
       </note>
       <note id="event-009">
@@ -193,11 +218,14 @@
           <step>E</step>
           <octave>4</octave>
         </pitch>
-        <duration>8</duration>
+        <duration>24</duration>
         <voice>1</voice>
         <type>quarter</type>
         <notations>
           <slur type="start" number="1" />
+          <technical>
+            <fingering>3</fingering>
+          </technical>
         </notations>
       </note>
       <note id="event-010">
@@ -205,11 +233,14 @@
           <step>D</step>
           <octave>4</octave>
         </pitch>
-        <duration>8</duration>
+        <duration>24</duration>
         <voice>1</voice>
         <type>quarter</type>
         <notations>
           <slur type="stop" number="1" />
+          <technical>
+            <fingering>1</fingering>
+          </technical>
         </notations>
       </note>
     </measure>

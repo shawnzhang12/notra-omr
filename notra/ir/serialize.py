@@ -98,6 +98,7 @@ def _event_from_dict(payload: object) -> Note | Rest:
             articulations=tuple(_optional_str_list(event_payload, "articulations")),
             beams=tuple(_optional_str_list(event_payload, "beams")),
             lyric=_optional_str(event_payload, "lyric"),
+            fingering=_optional_str(event_payload, "fingering"),
             chord=_optional_bool(event_payload, "chord", default=False),
             tuplet=_optional_str(event_payload, "tuplet"),
             tuplet_ratio=_optional_tuplet_ratio(event_payload, "tuplet_ratio"),
@@ -178,6 +179,7 @@ def _direction_from_dict(payload: object) -> Direction:
         kind=_require_str(direction_payload, "kind"),
         value=_require_str(direction_payload, "value"),
         placement=_optional_str(direction_payload, "placement", default="above") or "above",
+        number=_optional_int(direction_payload, "number", default=1),
     )
 
 

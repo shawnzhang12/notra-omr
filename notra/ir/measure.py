@@ -13,8 +13,9 @@ from notra.ir.rest import Rest
 from notra.ir.time import TimeSignature
 
 Event = Note | Rest
-_VALID_DIRECTION_KIND = {"words", "dynamic", "tempo", "rehearsal"}
+_VALID_DIRECTION_KIND = {"words", "dynamic", "tempo", "rehearsal", "wedge"}
 _VALID_PLACEMENT = {"above", "below"}
+_VALID_WEDGE = {"crescendo", "diminuendo", "stop"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +69,7 @@ class Direction:
     kind: str
     value: str
     placement: str = "above"
+    number: int = 1
 
     def __post_init__(self) -> None:
         if not self.id.strip():
@@ -80,16 +82,23 @@ class Direction:
             raise ValueError("direction value must be non-empty")
         if self.placement not in _VALID_PLACEMENT:
             raise ValueError("direction placement must be 'above' or 'below'")
+        if self.number < 1:
+            raise ValueError("direction number must be >= 1")
         if self.kind == "dynamic" and not is_valid_dynamic(self.value):
             raise ValueError(f"unsupported dynamic value: {self.value!r}")
+        if self.kind == "wedge" and self.value not in _VALID_WEDGE:
+            raise ValueError(
+                f"wedge direction value must be one of {sorted(_VALID_WEDGE)}, got {self.value!r}"
+            )
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, str | int]:
         """Serialize to a JSON-friendly dictionary."""
         return {
             "id": self.id,
             "kind": self.kind,
             "value": self.value,
             "placement": self.placement,
+            "number": self.number,
         }
 
 

@@ -42,13 +42,22 @@
               "id": "dir-003",
               "kind": "dynamic",
               "value": "mf",
-              "placement": "below"
+              "placement": "below",
+              "number": 1
             },
             {
               "id": "dir-004",
               "kind": "words",
               "value": "dolce",
-              "placement": "above"
+              "placement": "above",
+              "number": 1
+            },
+            {
+              "id": "dir-007",
+              "kind": "wedge",
+              "value": "crescendo",
+              "placement": "below",
+              "number": 1
             }
           ],
           "voices": [
@@ -76,7 +85,8 @@
                   "articulations": [
                     "staccato"
                   ],
-                  "lyric": "Shine"
+                  "lyric": "Shine",
+                  "fingering": "1"
                 },
                 {
                   "kind": "note",
@@ -93,7 +103,8 @@
                   "chord": true,
                   "articulations": [
                     "accent"
-                  ]
+                  ],
+                  "fingering": "3"
                 },
                 {
                   "kind": "note",
@@ -136,6 +147,8 @@
                     "normal_notes": 2
                   },
                   "lyric": "bright"
+                  ,
+                  "fingering": "2"
                 },
                 {
                   "kind": "note",
@@ -162,7 +175,8 @@
                   ],
                   "articulations": [
                     "tenuto"
-                  ]
+                  ],
+                  "fingering": "4"
                 },
                 {
                   "kind": "rest",
@@ -185,13 +199,22 @@
               "id": "dir-005",
               "kind": "dynamic",
               "value": "f",
-              "placement": "below"
+              "placement": "below",
+              "number": 1
             },
             {
               "id": "dir-006",
               "kind": "words",
               "value": "rit.",
-              "placement": "above"
+              "placement": "above",
+              "number": 1
+            },
+            {
+              "id": "dir-008",
+              "kind": "wedge",
+              "value": "stop",
+              "placement": "below",
+              "number": 1
             }
           ],
           "voices": [
@@ -213,7 +236,8 @@
                   "ties": [
                     "stop"
                   ],
-                  "lyric": "ly"
+                  "lyric": "ly",
+                  "fingering": "1"
                 },
                 {
                   "kind": "note",
@@ -229,7 +253,8 @@
                   "voice": 1,
                   "articulations": [
                     "strong-accent"
-                  ]
+                  ],
+                  "fingering": "2"
                 },
                 {
                   "kind": "note",
@@ -245,7 +270,8 @@
                   "voice": 1,
                   "slurs": [
                     "start"
-                  ]
+                  ],
+                  "fingering": "3"
                 },
                 {
                   "kind": "note",
@@ -261,7 +287,8 @@
                   "voice": 1,
                   "slurs": [
                     "stop"
-                  ]
+                  ],
+                  "fingering": "1"
                 }
               ]
             }
