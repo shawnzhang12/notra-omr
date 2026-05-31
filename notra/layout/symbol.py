@@ -144,7 +144,12 @@ def _detect_noteheads_grayscale(
                 NoteheadCandidate(
                     cx=cx_img,
                     cy=cy_img,
-                    bbox=(int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())),
+                    bbox=(
+                        int(xs.min()),
+                        int(ys.min() + y0),
+                        int(xs.max()),
+                        int(ys.max() + y0),
+                    ),
                     area=float(area),
                     is_filled=is_filled,
                     staff_step=step,

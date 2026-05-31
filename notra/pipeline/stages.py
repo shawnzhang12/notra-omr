@@ -327,6 +327,7 @@ def detect_stems_stage(ctx: dict[str, Any]) -> None:
     from notra.layout.beam_detector import detect_beams
     interline = float(np.median([b.interline_px for b in bands]))
     beams = detect_beams(ink, bands, list(stem_map_raw.values()), interline)
+    ctx["beam_candidates"] = beams
 
     # Build flag_map from beam connections
     # Map beam detector stem index → pipeline notehead index
