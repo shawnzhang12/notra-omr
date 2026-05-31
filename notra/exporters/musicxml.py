@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 from math import gcd
+import re
 from xml.etree import ElementTree as ET
 
 from notra.ir.measure import Direction, MeasureAttributes, Voice
@@ -27,14 +28,48 @@ def export_score_to_musicxml(score: Score) -> str:
 
     for part in score.parts:
         part_elem = ET.SubElement(root, "part", id=part.id)
-        _append_part_measures(part_elem, part, divisions)
+        staff_map = _part_staff_map(part)
+        _append_part_measures(part_elem, part, divisions, staff_map)
 
     ET.indent(root, space="  ")
     return ET.tostring(root, encoding="unicode", xml_declaration=True)
 
 
-def _append_part_measures(part_elem: ET.Element, part: Part, default_divisions: int) -> None:
+_STAFF_INDEX_RE = re.compile(r"_s(\d+)_")
+
+
+def _extract_staff_index(event_id: str) -> int | None:
+    """Extract pipeline staff index from event ids like `..._s3_...`."""
+    match = _STAFF_INDEX_RE.search(event_id)
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+def _part_staff_map(part: Part) -> dict[int, int]:
+    """Map global staff indices to 1-based per-part staff numbers."""
+    staff_indices: set[int] = set()
+    for measure in part.measures:
+        for voice in measure.voices:
+            for event in voice.events:
+                staff_idx = _extract_staff_index(event.id)
+                if staff_idx is not None:
+                    staff_indices.add(staff_idx)
+
+    if len(staff_indices) <= 1:
+        return {}
+    ordered = sorted(staff_indices)
+    return {staff_idx: i + 1 for i, staff_idx in enumerate(ordered)}
+
+
+def _append_part_measures(
+    part_elem: ET.Element,
+    part: Part,
+    default_divisions: int,
+    staff_map: dict[int, int],
+) -> None:
     current_divisions = default_divisions
+    staff_count = len(staff_map)
     for index, measure in enumerate(part.measures):
         measure_elem = ET.SubElement(part_elem, "measure", number=str(measure.number))
 
@@ -43,13 +78,20 @@ def _append_part_measures(part_elem: ET.Element, part: Part, default_divisions: 
                 measure_elem,
                 measure.attributes,
                 current_divisions,
+                staff_count=staff_count,
             )
 
         for direction in measure.directions:
             _append_direction(measure_elem, direction)
 
         for voice_index, voice in enumerate(measure.voices, start=1):
-            _append_voice_events(measure_elem, voice, voice_index, current_divisions)
+            _append_voice_events(
+                measure_elem,
+                voice,
+                voice_index,
+                current_divisions,
+                staff_map=staff_map,
+            )
 
         if measure.barline is not None and measure.barline.style != "regular":
             ET.SubElement(measure_elem, "barline", location="right")
@@ -59,10 +101,14 @@ def _append_attributes(
     measure_elem: ET.Element,
     attributes: MeasureAttributes | None,
     default_divisions: int,
+    *,
+    staff_count: int = 0,
 ) -> int:
     attr_elem = ET.SubElement(measure_elem, "attributes")
     divisions = attributes.divisions if attributes and attributes.divisions else default_divisions
     ET.SubElement(attr_elem, "divisions").text = str(divisions)
+    if staff_count > 1:
+        ET.SubElement(attr_elem, "staves").text = str(staff_count)
 
     if attributes and attributes.key is not None:
         key_elem = ET.SubElement(attr_elem, "key")
@@ -87,11 +133,17 @@ def _append_voice_events(
     voice: Voice,
     fallback_voice: int,
     divisions: int,
+    *,
+    staff_map: dict[int, int],
 ) -> None:
     voice_number = _voice_number(voice.id, fallback_voice)
 
     for event in voice.events:
         note_elem = ET.SubElement(measure_elem, "note", id=event.id)
+        if staff_map:
+            staff_idx = _extract_staff_index(event.id)
+            staff_num = staff_map.get(staff_idx, 1) if staff_idx is not None else 1
+            ET.SubElement(note_elem, "staff").text = str(staff_num)
         if isinstance(event, Note) and event.chord:
             ET.SubElement(note_elem, "chord")
         if isinstance(event, Rest):
@@ -147,7 +199,13 @@ def _append_beams(note_elem: ET.Element, note: Note) -> None:
 
 
 def _append_note_notations(note_elem: ET.Element, note: Note) -> None:
-    needs_notations = bool(note.ties or note.slurs or note.articulations or note.tuplet is not None)
+    needs_notations = bool(
+        note.ties
+        or note.slurs
+        or note.articulations
+        or note.tuplet is not None
+        or note.fingering is not None
+    )
     if not needs_notations:
         return
 
