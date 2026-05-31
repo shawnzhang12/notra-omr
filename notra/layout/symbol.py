@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-
+from notra.layout.staff import StaffBand
 
 # ---------------------------------------------------------------------------
 # Notehead detection
@@ -450,13 +450,11 @@ def detect_stems(
             # Search below notehead
             search_start = y1
             search_end = min(h, y1 + int(interline * 5))
-            stem_top = y1
         else:
             direction = "up"
             # Search above notehead
             search_start = max(0, y0 - int(interline * 5))
             search_end = y0
-            stem_top = y0
 
         # Search a window of columns for a vertical ink run (stem).
         # Stems in rendered music are 3-5 px wide; a single-column search
@@ -695,7 +693,9 @@ def _score_treble(
     # Ink in upper region (curl above staff)
     y_upper_low = max(0, line5_y - half_step)
     y_upper_high = min(len(vproj), line5_y + half_step * 5)
-    score_upper = float(vproj[y_upper_low:y_upper_high].sum()) if y_upper_high > y_upper_low else 0.0
+    score_upper = (
+        float(vproj[y_upper_low:y_upper_high].sum()) if y_upper_high > y_upper_low else 0.0
+    )
 
     # Treble has substantial ink above staff
     return score_g_line * 2.0 + score_upper
@@ -879,7 +879,6 @@ def detect_accidentals(
         if band is None:
             continue
 
-        half_step = band.interline_px / 2.0
         search_y0 = max(0, int(nh.cy - interline * 2))
         search_y1 = min(h, int(nh.cy + interline * 2))
 

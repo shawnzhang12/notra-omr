@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from fractions import Fraction
 from math import gcd
-import re
 from xml.etree import ElementTree as ET
 
 from notra.ir.measure import Direction, MeasureAttributes, Voice

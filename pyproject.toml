@@ -26,7 +26,10 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio",
     "Topic :: Scientific/Engineering :: Image Recognition",
 ]
-dependencies = []
+dependencies = [
+    "numpy>=1.26.0",
+    "pillow>=10.0",
+]
 
 [project.scripts]
 notra = "notra.cli.main:main"

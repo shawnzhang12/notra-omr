@@ -16,6 +16,10 @@ VALID_DYNAMICS: frozenset[str] = frozenset(
         "ffff",
         "sfz",
         "fp",
+        "sf",
+        "fz",
+        "rfz",
+        "sfp",
     }
 )
 

@@ -206,6 +206,16 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Generated Notra artifacts
+artifacts/debug/
+artifacts/tmp/
+artifacts/training/
+artifacts/executive/step-8/
+artifacts/executive/step-9/
+artifacts/executive/step-10/
+artifacts/executive/step-11/
+artifacts/executive/step-12/
+
 # PyPI configuration file
 .pypirc
 

@@ -95,7 +95,7 @@ class SymbolInstance:
 class SegmentationModelConfig:
     """Architecture-independent config for a future segmentation model."""
 
-    architecture: str = "unet"
+    architecture: str = "tiny_unet"
     encoder: str = "lightweight"
     input_channels: int = 1
     class_count: int = len(SegmentationClass)

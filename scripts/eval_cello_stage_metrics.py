@@ -26,7 +26,7 @@ class Fixture:
 
 def _load_fixtures() -> list[Fixture]:
     root = Path(__file__).resolve().parents[1]
-    cello_dir = root / "artifacts/training/overfit/screenshots/cello"
+    cello_dir = root / "tests/fixtures/images/cello"
     gt_dir = root / "tests/fixtures/golden/cello"
 
     fixtures: list[Fixture] = []
