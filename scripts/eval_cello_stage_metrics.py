@@ -6,13 +6,14 @@ Usage:
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean
-import xml.etree.ElementTree as ET
 
 from notra.pipeline import stages
+from notra.pipeline.config import PipelineConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,7 +25,7 @@ class Fixture:
 
 
 def _load_fixtures() -> list[Fixture]:
-    root = Path("/var/home/shawn/Projects/notra-omr")
+    root = Path(__file__).resolve().parents[1]
     cello_dir = root / "artifacts/training/overfit/screenshots/cello"
     gt_dir = root / "tests/fixtures/golden/cello"
 
@@ -65,6 +66,7 @@ def _load_fixtures() -> list[Fixture]:
 def _run_stage_slice(
     image_path: Path,
     *,
+    config: PipelineConfig | None = None,
     use_grayscale_notehead_fallback: bool | None,
     use_line_position_noteheads: bool | None,
     force_bass_clef: bool,
@@ -76,6 +78,8 @@ def _run_stage_slice(
         "metrics": {},
         "force_bass_clef": force_bass_clef,
     }
+    if config is not None:
+        ctx.update(config.to_context())
     if use_grayscale_notehead_fallback is not None:
         ctx["use_grayscale_notehead_fallback"] = use_grayscale_notehead_fallback
     if use_line_position_noteheads is not None:
@@ -107,12 +111,14 @@ def main() -> None:
     for fx in fixtures:
         clef_legacy, heads_legacy = _run_stage_slice(
             fx.image_path,
+            config=None,
             use_grayscale_notehead_fallback=True,
             use_line_position_noteheads=True,
             force_bass_clef=False,
         )
         clef_current, heads_current = _run_stage_slice(
             fx.image_path,
+            config=PipelineConfig.cello(),
             use_grayscale_notehead_fallback=None,
             use_line_position_noteheads=None,
             force_bass_clef=True,
@@ -163,14 +169,24 @@ def main() -> None:
     mean_prec_current = mean(float(row["current_precision"]) for row in rows)
     mean_rec_legacy = mean(float(row["legacy_recall"]) for row in rows)
     mean_rec_current = mean(float(row["current_recall"]) for row in rows)
-    mean_abs_err_legacy = mean(abs(int(row["legacy_heads"]) - int(row["gt_notes"])) for row in rows)
-    mean_abs_err_current = mean(abs(int(row["current_heads"]) - int(row["gt_notes"])) for row in rows)
+    mean_abs_err_legacy = mean(
+        abs(int(row["legacy_heads"]) - int(row["gt_notes"])) for row in rows
+    )
+    mean_abs_err_current = mean(
+        abs(int(row["current_heads"]) - int(row["gt_notes"])) for row in rows
+    )
 
     def _f1(precision: float, recall: float) -> float:
-        return (2.0 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
+        if (precision + recall) <= 0:
+            return 0.0
+        return 2.0 * precision * recall / (precision + recall)
 
-    mean_f1_legacy = mean(_f1(float(row["legacy_precision"]), float(row["legacy_recall"])) for row in rows)
-    mean_f1_current = mean(_f1(float(row["current_precision"]), float(row["current_recall"])) for row in rows)
+    mean_f1_legacy = mean(
+        _f1(float(row["legacy_precision"]), float(row["legacy_recall"])) for row in rows
+    )
+    mean_f1_current = mean(
+        _f1(float(row["current_precision"]), float(row["current_recall"])) for row in rows
+    )
 
     print("\nSUMMARY")
     print(f"fixtures: {fixture_count}")
@@ -179,7 +195,10 @@ def main() -> None:
     print(f"mean precision legacy/current: {mean_prec_legacy:.3f} / {mean_prec_current:.3f}")
     print(f"mean recall legacy/current:    {mean_rec_legacy:.3f} / {mean_rec_current:.3f}")
     print(f"mean F1 legacy/current:        {mean_f1_legacy:.3f} / {mean_f1_current:.3f}")
-    print(f"mean abs count err legacy/current: {mean_abs_err_legacy:.2f} / {mean_abs_err_current:.2f}")
+    print(
+        "mean abs count err legacy/current: "
+        f"{mean_abs_err_legacy:.2f} / {mean_abs_err_current:.2f}"
+    )
 
 
 if __name__ == "__main__":

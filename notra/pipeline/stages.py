@@ -25,12 +25,10 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from PIL import Image
-
 from notra.core.geometry import BBox
 from notra.ir.clef import Clef
 from notra.ir.key import KeySignature
-from notra.ir.measure import Direction, Measure, MeasureAttributes, Voice
+from notra.ir.measure import Measure, MeasureAttributes, Voice
 from notra.ir.note import Duration, Note, Pitch
 from notra.ir.rest import Rest
 from notra.ir.score import Part, Score
@@ -56,12 +54,11 @@ from notra.layout.symbol import (
     detect_accidentals,
     detect_barlines,
     detect_clef_region,
-    detect_flags,
     detect_noteheads,
     detect_rests,
-    detect_stems,
 )
-
+from notra.pipeline.config import PipelineConfig
+from PIL import Image
 
 # ---------------------------------------------------------------------------
 # Stage 1: Image loading
@@ -206,11 +203,7 @@ def detect_clefs_stage(ctx: dict[str, Any]) -> None:
 
     # Use classifier clefs if available
     classifier_clefs: list[tuple[str, int]] | None = ctx.get("_structural_clefs")
-    image_path = str(ctx.get("image_path", "")).lower()
-    if "force_bass_clef" in ctx:
-        force_cello_bass = bool(ctx["force_bass_clef"])
-    else:
-        force_cello_bass = "/cello/" in image_path or image_path.endswith("cello")
+    force_bass_clef = bool(ctx.get("force_bass_clef", False))
 
     staff_annotations: list[StaffAnnotation] = []
     for idx, band in enumerate(bands):
@@ -218,7 +211,7 @@ def detect_clefs_stage(ctx: dict[str, Any]) -> None:
             clef_sign, clef_line = classifier_clefs[idx]
         else:
             clef_sign, clef_line = detect_clef_region(ink, band, barline_xs=barline_xs)
-        if force_cello_bass:
+        if force_bass_clef:
             clef_sign, clef_line = ("F", 4)
 
         # Detect key signature
@@ -247,13 +240,6 @@ def detect_noteheads_stage(ctx: dict[str, Any]) -> None:
     """Detect notehead candidates from the ink image."""
     ink = _ensure_ink(ctx)
     bands: list[StaffBand] = ctx["staff_bands"]
-    image_path = str(ctx.get("image_path", "")).lower()
-    is_cello_page = "/cello/" in image_path or image_path.endswith("cello")
-    explicit_mode = (
-        "use_grayscale_notehead_fallback" in ctx
-        or "use_line_position_noteheads" in ctx
-    )
-
     noteheads = detect_noteheads(
         ink,
         bands,
@@ -262,10 +248,9 @@ def detect_noteheads_stage(ctx: dict[str, Any]) -> None:
         use_line_position_pass=bool(ctx.get("use_line_position_noteheads", False)),
     )
 
-    # Cello-adaptive rescue: if conservative pass under-detects, allow a
-    # bounded grayscale fallback expansion. Keep this off when mode flags
-    # are explicitly set (e.g. evaluation scripts comparing raw modes).
-    if is_cello_page and not explicit_mode and noteheads:
+    # Profile-controlled rescue: if conservative pass under-detects, allow a
+    # bounded grayscale fallback expansion.
+    if bool(ctx.get("low_density_grayscale_rescue", False)) and noteheads:
         density = len(noteheads) / float(max(1, len(bands)))
         density_threshold = float(ctx.get("cello_low_density_threshold", 22.0))
         growth_cap = float(ctx.get("cello_gray_growth_cap", 1.5))
@@ -277,7 +262,8 @@ def detect_noteheads_stage(ctx: dict[str, Any]) -> None:
                 use_grayscale_fallback=True,
                 use_line_position_pass=False,
             )
-            if len(gray_rescue) > len(noteheads) and len(gray_rescue) <= int(round(len(noteheads) * growth_cap)):
+            max_rescue_count = int(round(len(noteheads) * growth_cap))
+            if len(noteheads) < len(gray_rescue) <= max_rescue_count:
                 ctx.setdefault("warnings", []).append(
                     "notehead density low; enabled bounded grayscale rescue"
                 )
@@ -976,8 +962,11 @@ def build_score_stage(ctx: dict[str, Any]) -> None:
                         f"{voice.id}: duration gap {float(gap):.3f} filled with rest"
                     )
                 elif gap < Fraction(0, 1):
+                    overflow = float(-gap)
+                    expected_float = float(expected)
                     ctx.setdefault("warnings", []).append(
-                        f"{voice.id}: duration overflow {float(-gap):.3f} (expected {float(expected)})"
+                        f"{voice.id}: duration overflow {overflow:.3f} "
+                        f"(expected {expected_float})"
                     )
 
             # Compute divisions for this measure
@@ -1084,11 +1073,11 @@ def classify_structure_stage(ctx: dict[str, Any]) -> None:
 
     try:
         if _structural_model_cache is None:
-            from notra.pipeline.structural_classifier import load_structural_model
-            from pathlib import Path
-
             # Find checkpoint relative to the project root
             import os
+            from pathlib import Path
+
+            from notra.pipeline.structural_classifier import load_structural_model
             repo_root = os.environ.get("NOTRA_ROOT", ".")
             ckpt = Path(repo_root) / "artifacts/training/structural_classifier/checkpoint.pt"
             if not ckpt.exists():
@@ -1103,7 +1092,10 @@ def classify_structure_stage(ctx: dict[str, Any]) -> None:
             _structural_model_cache.to(dev)
             _structural_model_cache._device = dev
 
-        from notra.pipeline.structural_classifier import predict_structural, inject_structural_predictions
+        from notra.pipeline.structural_classifier import (
+            inject_structural_predictions,
+            predict_structural,
+        )
         preds = predict_structural(
             _structural_model_cache, image_path,
             device=getattr(_structural_model_cache, "_device", "cpu"),
@@ -1143,6 +1135,7 @@ def run_full_pipeline(
     *,
     stages: tuple[tuple[str, callable], ...] | None = None,
     structural: dict[str, Any] | None = None,
+    config: PipelineConfig | None = None,
 ) -> PipelineResult:
     """Run the complete OMR recognition pipeline on an image.
 
@@ -1162,6 +1155,9 @@ def run_full_pipeline(
         "warnings": [],
         "metrics": {},
     }
+    if config is None:
+        config = PipelineConfig.for_image(image_path)
+    ctx.update(config.to_context())
 
     # Inject structural ground truth if provided (bypasses classifier)
     if structural:
