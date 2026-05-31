@@ -9,15 +9,16 @@ Stage ordering:
      2. detect_layout       — staff lines, barlines, systems
      3. detect_clefs        — clef classification per staff
      4. detect_noteheads    — notehead candidate extraction
-     5. detect_rests        — rest symbol detection
-     6. detect_stems        — stem detection per notehead
-     7. detect_accidentals  — accidental detection per notehead
-     8. assign_pitch        — map staff position → diatonic pitch, apply accidentals
-     9. assign_duration     — classify notehead type → duration with flags
-    10. assign_voice        — split noteheads into voices via stem direction
-    11. assemble_measures   — group events by per-system barline boundaries
-    12. build_score         — construct notra.ir.Score with multi-voice parts
-    13. export_musicxml     — serialize to MusicXML string
+     5. detect_time         — classify simple opening time signatures
+     6. detect_rests        — rest symbol detection
+     7. detect_stems        — stem detection per notehead
+     8. detect_accidentals  — accidental detection per notehead
+     9. assign_pitch        — map staff position → diatonic pitch, apply accidentals
+    10. assign_duration     — classify notehead type → duration with flags
+    11. assign_voice        — split noteheads into voices via stem direction
+    12. assemble_measures   — group events by per-system barline boundaries
+    13. build_score         — construct notra.ir.Score with multi-voice parts
+    14. export_musicxml     — serialize to MusicXML string
 """
 
 from __future__ import annotations
@@ -275,7 +276,30 @@ def detect_noteheads_stage(ctx: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Stage 5: Rest detection
+# Stage 5: Time signature detection
+# ---------------------------------------------------------------------------
+
+
+def detect_time_signature_stage(ctx: dict[str, Any]) -> None:
+    """Detect simple opening time signatures unless structural predictions exist."""
+    if "_structural_time_beats" in ctx and "_structural_time_beat_type" in ctx:
+        return
+
+    ink = _ensure_ink(ctx)
+    bands: list[StaffBand] = ctx["staff_bands"]
+
+    from notra.layout.time_signature import detect_time_signature
+
+    candidate = detect_time_signature(ink, bands)
+    ctx["_structural_time_beats"] = candidate.beats
+    ctx["_structural_time_beat_type"] = candidate.beat_type
+    ctx["time_signature_candidate"] = candidate
+    ctx.setdefault("metrics", {})["time_signature"] = candidate.signature
+    ctx.setdefault("metrics", {})["time_signature_visual_class"] = candidate.visual_class
+
+
+# ---------------------------------------------------------------------------
+# Stage 6: Rest detection
 # ---------------------------------------------------------------------------
 
 
@@ -290,7 +314,7 @@ def detect_rests_stage(ctx: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Stage 6: Stem detection
+# Stage 7: Stem detection
 # ---------------------------------------------------------------------------
 
 
@@ -355,7 +379,7 @@ def detect_stems_stage(ctx: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Stage 7: Accidental detection
+# Stage 8: Accidental detection
 # ---------------------------------------------------------------------------
 
 
@@ -374,7 +398,7 @@ def detect_accidentals_stage(ctx: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Stage 8: Pitch assignment
+# Stage 9: Pitch assignment
 # ---------------------------------------------------------------------------
 
 
@@ -1119,6 +1143,7 @@ STAGE_ORDER: tuple[tuple[str, callable], ...] = (
     ("classify_structure", classify_structure_stage),
     ("detect_clefs", detect_clefs_stage),
     ("detect_noteheads", detect_noteheads_stage),
+    ("detect_time_signature", detect_time_signature_stage),
     ("detect_rests", detect_rests_stage),
     ("detect_stems", detect_stems_stage),
     ("detect_accidentals", detect_accidentals_stage),

@@ -21,6 +21,7 @@ class Fixture:
     name: str
     image_path: Path
     gt_clef: str
+    gt_time: str
     gt_note_count: int
 
 
@@ -46,6 +47,14 @@ def _load_fixtures() -> list[Fixture]:
                 line = clef.find("line")
                 if sign is not None and line is not None:
                     gt_clef = f"{sign.text}{line.text}"
+        gt_time = "?"
+        if attrs is not None:
+            time = attrs.find("time")
+            if time is not None:
+                beats = time.find("beats")
+                beat_type = time.find("beat-type")
+                if beats is not None and beat_type is not None:
+                    gt_time = f"{beats.text}/{beat_type.text}"
 
         gt_note_count = sum(
             1
@@ -57,6 +66,7 @@ def _load_fixtures() -> list[Fixture]:
                 name=name,
                 image_path=image_path,
                 gt_clef=gt_clef,
+                gt_time=gt_time,
                 gt_note_count=gt_note_count,
             )
         )
@@ -70,7 +80,7 @@ def _run_stage_slice(
     use_grayscale_notehead_fallback: bool | None,
     use_line_position_noteheads: bool | None,
     force_bass_clef: bool,
-) -> tuple[str, int]:
+) -> tuple[str, str, int]:
     ctx = {
         "image_path": str(image_path),
         "errors": [],
@@ -90,14 +100,19 @@ def _run_stage_slice(
         stages.detect_layout_stage,
         stages.detect_clefs_stage,
         stages.detect_noteheads_stage,
+        stages.detect_time_signature_stage,
     ):
         fn(ctx)
 
     annotations = ctx.get("staff_annotations", [])
     clef_votes = [f"{ann.clef_sign}{ann.clef_line}" for ann in annotations]
     pred_clef = Counter(clef_votes).most_common(1)[0][0] if clef_votes else "?"
+    pred_time = (
+        f"{ctx.get('_structural_time_beats', '?')}/"
+        f"{ctx.get('_structural_time_beat_type', '?')}"
+    )
     notehead_count = len(ctx.get("notehead_candidates", []))
-    return pred_clef, notehead_count
+    return pred_clef, pred_time, notehead_count
 
 
 def main() -> None:
@@ -109,14 +124,14 @@ def main() -> None:
 
     rows: list[dict[str, object]] = []
     for fx in fixtures:
-        clef_legacy, heads_legacy = _run_stage_slice(
+        clef_legacy, time_legacy, heads_legacy = _run_stage_slice(
             fx.image_path,
             config=None,
             use_grayscale_notehead_fallback=True,
             use_line_position_noteheads=True,
             force_bass_clef=False,
         )
-        clef_current, heads_current = _run_stage_slice(
+        clef_current, time_current, heads_current = _run_stage_slice(
             fx.image_path,
             config=PipelineConfig.cello(),
             use_grayscale_notehead_fallback=None,
@@ -136,8 +151,11 @@ def main() -> None:
             {
                 "name": fx.name,
                 "gt_clef": fx.gt_clef,
+                "gt_time": fx.gt_time,
                 "legacy_clef": clef_legacy,
                 "current_clef": clef_current,
+                "legacy_time": time_legacy,
+                "current_time": time_current,
                 "gt_notes": fx.gt_note_count,
                 "legacy_heads": heads_legacy,
                 "current_heads": heads_current,
@@ -149,13 +167,15 @@ def main() -> None:
         )
 
     print(
-        f"{'Fixture':30s} {'ClefL':>6s} {'ClefC':>6s} {'HeadsL':>7s} {'HeadsC':>7s} "
-        f"{'GT':>4s} {'PrecL':>6s} {'PrecC':>6s} {'RecL':>6s} {'RecC':>6s}"
+        f"{'Fixture':30s} {'ClefL':>6s} {'ClefC':>6s} {'TimeL':>6s} {'TimeC':>6s} "
+        f"{'HeadsL':>7s} {'HeadsC':>7s} {'GT':>4s} {'PrecL':>6s} {'PrecC':>6s} "
+        f"{'RecL':>6s} {'RecC':>6s}"
     )
-    print("-" * 110)
+    print("-" * 124)
     for row in rows:
         print(
             f"{row['name']:30s} {row['legacy_clef']:>6s} {row['current_clef']:>6s} "
+            f"{row['legacy_time']:>6s} {row['current_time']:>6s} "
             f"{row['legacy_heads']:>7d} {row['current_heads']:>7d} {row['gt_notes']:>4d} "
             f"{row['legacy_precision']:.2f}  {row['current_precision']:.2f}  "
             f"{row['legacy_recall']:.2f}  {row['current_recall']:.2f}"
@@ -163,6 +183,8 @@ def main() -> None:
 
     clef_legacy_ok = sum(1 for row in rows if row["legacy_clef"] == row["gt_clef"])
     clef_current_ok = sum(1 for row in rows if row["current_clef"] == row["gt_clef"])
+    time_legacy_ok = sum(1 for row in rows if row["legacy_time"] == row["gt_time"])
+    time_current_ok = sum(1 for row in rows if row["current_time"] == row["gt_time"])
     fixture_count = len(rows)
 
     mean_prec_legacy = mean(float(row["legacy_precision"]) for row in rows)
@@ -192,6 +214,8 @@ def main() -> None:
     print(f"fixtures: {fixture_count}")
     print(f"clef accuracy legacy:  {clef_legacy_ok}/{fixture_count}")
     print(f"clef accuracy current: {clef_current_ok}/{fixture_count}")
+    print(f"time accuracy legacy:  {time_legacy_ok}/{fixture_count}")
+    print(f"time accuracy current: {time_current_ok}/{fixture_count}")
     print(f"mean precision legacy/current: {mean_prec_legacy:.3f} / {mean_prec_current:.3f}")
     print(f"mean recall legacy/current:    {mean_rec_legacy:.3f} / {mean_rec_current:.3f}")
     print(f"mean F1 legacy/current:        {mean_f1_legacy:.3f} / {mean_f1_current:.3f}")
