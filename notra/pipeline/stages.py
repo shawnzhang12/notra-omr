@@ -41,8 +41,10 @@ from notra.layout.annotations import (
     PipelineResult,
     StaffAnnotation,
 )
+from notra.layout.measure import detect_measure_barlines, estimate_staff_x_extent
 from notra.layout.staff import (
     StaffBand,
+    detect_staff_bands_from_horizontal_runs,
     detect_staff_lines,
     group_staff_bands,
     staff_step_to_pitch,
@@ -124,6 +126,12 @@ def detect_layout_stage(ctx: dict[str, Any]) -> None:
     staff_line_ys = detect_staff_lines(gray, threshold_sigma=1.0)
     bands, interline = group_staff_bands(staff_line_ys)
 
+    if ctx.get("profile_name") == "cello":
+        rendered_bands = detect_staff_bands_from_horizontal_runs(gray)
+        if len(rendered_bands) >= len(bands):
+            bands = rendered_bands
+            interline = float(np.median([band.interline_px for band in bands]))
+
     # Auto-upscale retry for dense scores (2x then 3x)
     for upscale in [2, 3]:
         if bands or ctx.get("_upscale_retried"):
@@ -138,46 +146,43 @@ def detect_layout_stage(ctx: dict[str, Any]) -> None:
         ctx["gray"] = gray_up
         ctx["image_width"] = gray_up.shape[1]
         ctx["image_height"] = gray_up.shape[0]
+        gray = gray_up
         staff_line_ys = detect_staff_lines(gray_up, threshold_sigma=0.7)
         bands, interline = group_staff_bands(staff_line_ys)
+
+    if ctx.get("profile_name") == "cello":
+        rendered_bands = detect_staff_bands_from_horizontal_runs(gray)
+        if len(rendered_bands) >= len(bands):
+            bands = rendered_bands
+            interline = float(np.median([band.interline_px for band in bands]))
 
     if not bands:
         ctx["errors"].append("No staff bands detected")
         return
 
     ink = _ensure_ink(ctx)
-    barline_xs = detect_barlines(ink, bands, min_length_ratio=4.0)
-    if len(barline_xs) < max(2, len(bands)):
-        denser = detect_barlines(ink, bands, min_length_ratio=3.5)
-        if len(denser) > len(barline_xs):
-            barline_xs = denser
-
-    # Group barlines by system: a barline belongs to a system if it spans
-    # most staves in that system. This enables per-system measure boundaries.
-    h_img, w_img = ink.shape
     system_members: list[list[int]] = _detect_system_members(bands)
 
-    barline_by_system: dict[int, list[float]] = {s: [] for s in range(len(system_members))}
-    for x in barline_xs:
-        xi = int(round(x))
-        if xi < 0 or xi >= w_img:
-            continue
-        for sys_idx, members in enumerate(system_members):
-            spanned = 0
-            for si in members:
-                band = bands[si]
-                col = ink[max(0, band.y_bottom):min(h_img, band.y_top + 1), xi]
-                run = _longest_ink_run_stage(col)
-                line_hits = 0
-                for ly in band.line_ys:
-                    y0 = max(0, int(ly) - 1)
-                    y1 = min(h_img, int(ly) + 2)
-                    if int(ink[y0:y1, xi].sum()) > 0:
-                        line_hits += 1
-                if run >= band.interline_px * 1.2 and line_hits >= 3:
-                    spanned += 1
-            if spanned >= max(1, len(members) * 0.4):
-                barline_by_system[sys_idx].append(x)
+    if ctx.get("profile_name") == "cello":
+        staff_barlines = detect_measure_barlines(ink, gray, bands)
+        barline_by_system = _barlines_by_system_from_staff_barlines(
+            staff_barlines,
+            system_members,
+            bands,
+        )
+        barline_xs = sorted({x for values in barline_by_system.values() for x in values})
+    else:
+        barline_xs = detect_barlines(ink, bands, min_length_ratio=4.0)
+        if len(barline_xs) < max(2, len(bands)):
+            denser = detect_barlines(ink, bands, min_length_ratio=3.5)
+            if len(denser) > len(barline_xs):
+                barline_xs = denser
+        barline_by_system = _assign_global_barlines_to_systems(
+            ink,
+            bands,
+            system_members,
+            barline_xs,
+        )
 
     ctx["staff_bands"] = bands
     ctx["interline_px"] = interline
@@ -730,6 +735,8 @@ def assemble_measures_stage(ctx: dict[str, Any]) -> None:
         events_by_staff[staff_idx].sort(key=lambda e: e.cx)
 
     max_x = float(ctx.get("image_width", 2200))
+    gray: np.ndarray | None = ctx.get("gray")
+    bands: list[StaffBand] = ctx.get("staff_bands", [])
 
     # Build measure boundaries per system. Barlines can differ by system,
     # especially when detection includes staff-local stems/noise.
@@ -739,7 +746,11 @@ def assemble_measures_stage(ctx: dict[str, Any]) -> None:
         sys_bars = sorted(barline_by_system.get(sys_idx, []))
         if not sys_bars:
             sys_bars = sorted(barline_xs)
-        all_xs = [0.0] + sys_bars + [max_x]
+        sys_left, sys_right = _system_x_extent(gray, bands, system_members, sys_idx, max_x)
+        all_xs = [sys_left] + sys_bars
+        interline_px = float(ctx.get("interline_px", 12.0))
+        if not sys_bars or (sys_right - sys_bars[-1]) > max(10.0, interline_px * 2.0):
+            all_xs.append(sys_right)
         for i in range(len(all_xs) - 1):
             x0, x1 = all_xs[i], all_xs[i + 1]
             if x1 - x0 < 10:
@@ -1236,6 +1247,96 @@ def _ensure_ink(ctx: dict[str, Any]) -> np.ndarray:
     ink = sauvola_binarize(gray, window=15, k=0.15)
     ctx["ink"] = ink
     return ink
+
+
+def _barlines_by_system_from_staff_barlines(
+    staff_barlines: dict[int, list[float]],
+    system_members: list[list[int]],
+    bands: list[StaffBand],
+) -> dict[int, list[float]]:
+    """Merge staff-local barlines into per-system measure boundaries."""
+    barline_by_system: dict[int, list[float]] = {}
+    for sys_idx, members in enumerate(system_members):
+        xs: list[float] = []
+        for staff_idx in members:
+            xs.extend(staff_barlines.get(staff_idx, []))
+        interline = (
+            float(np.median([bands[idx].interline_px for idx in members]))
+            if members
+            else 12.0
+        )
+        barline_by_system[sys_idx] = _dedupe_close_xs(
+            xs,
+            max_gap=max(4.0, interline * 0.60),
+        )
+    return barline_by_system
+
+
+def _assign_global_barlines_to_systems(
+    ink: np.ndarray,
+    bands: list[StaffBand],
+    system_members: list[list[int]],
+    barline_xs: list[float],
+) -> dict[int, list[float]]:
+    """Assign legacy global vertical-run barlines to systems."""
+    h_img, w_img = ink.shape
+    barline_by_system: dict[int, list[float]] = {s: [] for s in range(len(system_members))}
+    for x in barline_xs:
+        xi = int(round(x))
+        if xi < 0 or xi >= w_img:
+            continue
+        for sys_idx, members in enumerate(system_members):
+            spanned = 0
+            for si in members:
+                band = bands[si]
+                y0 = max(0, min(band.line_ys))
+                y1 = min(h_img, max(band.line_ys) + 1)
+                col = ink[y0:y1, xi]
+                run = _longest_ink_run_stage(col)
+                line_hits = 0
+                for ly in band.line_ys:
+                    line_y0 = max(0, int(ly) - 1)
+                    line_y1 = min(h_img, int(ly) + 2)
+                    if int(ink[line_y0:line_y1, xi].sum()) > 0:
+                        line_hits += 1
+                if run >= band.interline_px * 1.2 and line_hits >= 3:
+                    spanned += 1
+            if spanned >= max(1, len(members) * 0.4):
+                barline_by_system[sys_idx].append(x)
+    return barline_by_system
+
+
+def _dedupe_close_xs(xs: list[float], *, max_gap: float) -> list[float]:
+    if not xs:
+        return []
+    xs = sorted(xs)
+    groups: list[list[float]] = [[xs[0]]]
+    for x in xs[1:]:
+        if x - groups[-1][-1] <= max_gap:
+            groups[-1].append(x)
+            continue
+        groups.append([x])
+    return [float(np.median(group)) for group in groups]
+
+
+def _system_x_extent(
+    gray: np.ndarray | None,
+    bands: list[StaffBand],
+    system_members: list[list[int]],
+    system_index: int,
+    fallback_right: float,
+) -> tuple[float, float]:
+    if gray is None or not bands or system_index >= len(system_members):
+        return 0.0, fallback_right
+
+    extents: list[tuple[float, float]] = []
+    for staff_idx in system_members[system_index]:
+        if 0 <= staff_idx < len(bands):
+            extents.append(estimate_staff_x_extent(gray, bands[staff_idx]))
+    if not extents:
+        return 0.0, fallback_right
+
+    return min(left for left, _right in extents), max(right for _left, right in extents)
 
 
 def _detect_system_members(bands: list[StaffBand]) -> list[list[int]]:

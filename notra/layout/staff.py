@@ -175,6 +175,82 @@ def detect_staff_lines(
     return merged
 
 
+def detect_staff_bands_from_horizontal_runs(
+    gray: np.ndarray,
+    *,
+    threshold: int = 240,
+    min_run_ratio: float = 0.18,
+    min_run_px: int = 450,
+    max_gap_px: int = 6,
+) -> list[StaffBand]:
+    """Detect rendered staff bands from long horizontal line runs.
+
+    This is intentionally stricter than projection-based staff detection:
+    a row must contain one long continuous dark run, so stems, beams, title
+    text, and fingerings do not become staff-line candidates.  It is useful
+    for high-resolution rendered fixtures where staff lines are clean but
+    global horizontal projection can be distracted by notation.
+    """
+    if gray.size == 0:
+        return []
+
+    mask = gray < threshold
+    h, w = mask.shape
+    min_run_len = max(int(min_run_px), int(round(w * min_run_ratio)))
+
+    row_runs: list[tuple[int, int, int, int]] = []
+    for y in range(h):
+        xs = np.where(mask[y, :])[0]
+        if len(xs) == 0:
+            continue
+
+        runs = _merge_1d_runs(xs, max_gap=max_gap_px)
+        best = max(runs, key=lambda r: r[2])
+        if best[2] >= min_run_len:
+            row_runs.append((y, best[0], best[1], best[2]))
+
+    if not row_runs:
+        return []
+
+    line_clusters: list[list[tuple[int, int, int, int]]] = []
+    cluster: list[tuple[int, int, int, int]] = [row_runs[0]]
+    for row in row_runs[1:]:
+        if row[0] - cluster[-1][0] <= 3:
+            cluster.append(row)
+            continue
+        line_clusters.append(cluster)
+        cluster = [row]
+    line_clusters.append(cluster)
+
+    lines: list[tuple[float, int, int, int]] = []
+    for line_cluster in line_clusters:
+        best = max(line_cluster, key=lambda r: r[3])
+        y_center = float(sum(row[0] for row in line_cluster)) / float(len(line_cluster))
+        lines.append((y_center, best[1], best[2], best[3]))
+
+    bands: list[StaffBand] = []
+    i = 0
+    while i <= len(lines) - 5:
+        seq = lines[i : i + 5]
+        gaps = [seq[j + 1][0] - seq[j][0] for j in range(4)]
+        median_gap = float(np.median(gaps))
+        deviation = float(sum(abs(gap - median_gap) for gap in gaps))
+
+        if 8.0 <= median_gap <= 45.0 and deviation <= median_gap * 0.75:
+            line_ys = tuple(int(round(line[0])) for line in seq)
+            bands.append(
+                StaffBand(
+                    (line_ys[0], line_ys[1], line_ys[2], line_ys[3], line_ys[4]),
+                    float(np.mean(gaps)),
+                )
+            )
+            i += 5
+            continue
+        i += 1
+
+    return bands
+
+
 def group_staff_bands(
     staff_lines: Sequence[int],
     *,
@@ -398,6 +474,25 @@ def _interpolate_missing_lines(lines: list[int], interline: float) -> list[int]:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _merge_1d_runs(xs: np.ndarray, *, max_gap: int) -> list[tuple[int, int, int]]:
+    """Merge sorted 1-D coordinates into inclusive runs."""
+    if len(xs) == 0:
+        return []
+
+    runs: list[tuple[int, int, int]] = []
+    start = int(xs[0])
+    prev = int(xs[0])
+    for value in xs[1:]:
+        x = int(value)
+        if x - prev <= max_gap:
+            prev = x
+            continue
+        runs.append((start, prev, prev - start + 1))
+        start = prev = x
+    runs.append((start, prev, prev - start + 1))
+    return runs
 
 
 def _otsu_binarize(gray: np.ndarray) -> np.ndarray:
