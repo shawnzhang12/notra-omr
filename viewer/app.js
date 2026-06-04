@@ -4,23 +4,111 @@ const state = {
   noteMap: new Map(),
   selectedNoteId: null,
   svgLinkedCount: 0,
+  selectedFixture: null,
 };
 
 const dom = {
+  fixtureSelect: document.getElementById("fixture-select"),
   xmlPath: document.getElementById("xml-path"),
   loadBtn: document.getElementById("load-btn"),
   filter: document.getElementById("filter"),
   status: document.getElementById("status"),
   stats: document.getElementById("stats"),
   notation: document.getElementById("notation"),
+  sourceImage: document.getElementById("source-image"),
+  sourceCaption: document.getElementById("source-caption"),
+  sourceWrap: document.getElementById("source-wrap"),
   tableBody: document.querySelector("#note-table tbody"),
   selectionEmpty: document.getElementById("selection-empty"),
   selectionJson: document.getElementById("selection-json"),
 };
 
+const FIXTURES = [
+  {
+    group: "Demo",
+    label: "Complex All Features",
+    xml: "../artifacts/executive/step-7/examples/02_complex_all_features.musicxml",
+  },
+  ...[
+    ["01 Fanfare", "01-fanfare"],
+    ["02 Skating", "02-skating"],
+    ["03 The Elephant's Waltz", "03-the_elephants_waltz"],
+    ["04 The Tired Tortoise", "04-the_tired_tortoise"],
+    ["05 The Whale's Song", "05-the_whales_song"],
+    ["06 March", "06-march"],
+    ["07 Sitting In The Shade", "07-sitting_in_the_shade"],
+    ["Feuillard Exercise 1", "feuillard_exercise_1"],
+    ["Left Hand Exercise 1", "left_hand_exercise_1"],
+    ["Lista Trio Sonata In D Minor", "lista-trio_sonata_in_d_minor"],
+    ["Suzuki Book 1 Piece 1", "suzuki_book_1_piece_1"],
+    ["Suzuki Book 1 Piece 2", "suzuki_book_1_piece_2"],
+    ["Suzuki Book 1 Piece 3", "suzuki_book_1_piece_3"],
+    ["Suzuki Book 1 Piece 4", "suzuki_book_1_piece_4"],
+    ["Suzuki Book 1 Piece 5", "suzuki_book_1_piece_5"],
+    ["Suzuki Book 1 Piece 6", "suzuki_book_1_piece_6"],
+    ["Suzuki Book 1 Piece 7", "suzuki_book_1_piece_7"],
+    ["Untitled Score", "untitled_score"],
+  ].map(([label, slug]) => ({
+    group: "Cello Golden Fixtures",
+    label,
+    xml: `../tests/fixtures/golden/cello/${slug}.musicxml`,
+    image: `../tests/fixtures/images/cello/${slug}/page-001.png`,
+  })),
+];
+
 function setStatus(text, ok = true) {
   dom.status.textContent = text;
   dom.status.style.color = ok ? "#166534" : "#b91c1c";
+}
+
+function populateFixtureSelect() {
+  dom.fixtureSelect.innerHTML = "";
+  const manual = document.createElement("option");
+  manual.value = "";
+  manual.textContent = "Custom path";
+  dom.fixtureSelect.appendChild(manual);
+
+  const groups = new Map();
+  for (const fixture of FIXTURES) {
+    if (!groups.has(fixture.group)) {
+      const group = document.createElement("optgroup");
+      group.label = fixture.group;
+      groups.set(fixture.group, group);
+      dom.fixtureSelect.appendChild(group);
+    }
+
+    const option = document.createElement("option");
+    option.value = fixture.xml;
+    option.textContent = fixture.label;
+    groups.get(fixture.group).appendChild(option);
+  }
+
+  const initialFixture = FIXTURES.find((fixture) => fixture.xml === dom.xmlPath.value);
+  if (initialFixture) {
+    state.selectedFixture = initialFixture;
+    dom.fixtureSelect.value = initialFixture.xml;
+    updateSourceImage(initialFixture);
+  }
+}
+
+function updateSourceImage(fixture) {
+  if (!fixture || !fixture.image) {
+    dom.sourceImage.removeAttribute("src");
+    dom.sourceWrap.classList.add("empty");
+    dom.sourceCaption.textContent = "No source page image for this selection.";
+    return;
+  }
+
+  dom.sourceWrap.classList.remove("empty");
+  dom.sourceImage.src = fixture.image;
+  dom.sourceCaption.textContent = fixture.image;
+}
+
+function selectFixtureByPath(xmlPath) {
+  const fixture = FIXTURES.find((item) => item.xml === xmlPath) || null;
+  state.selectedFixture = fixture;
+  dom.fixtureSelect.value = fixture ? fixture.xml : "";
+  updateSourceImage(fixture);
 }
 
 function parseMusicXmlNotes(xmlText) {
@@ -287,6 +375,7 @@ async function loadScore() {
   if (!xmlPath) return;
 
   clearSelection();
+  selectFixtureByPath(xmlPath);
   setStatus("Loading MusicXML...", true);
 
   try {
@@ -317,8 +406,21 @@ async function loadScore() {
 }
 
 function bootstrap() {
+  populateFixtureSelect();
   hookNotationClicks();
+  dom.fixtureSelect.addEventListener("change", () => {
+    const xmlPath = dom.fixtureSelect.value;
+    if (!xmlPath) {
+      state.selectedFixture = null;
+      updateSourceImage(null);
+      return;
+    }
+    dom.xmlPath.value = xmlPath;
+    selectFixtureByPath(xmlPath);
+    loadScore();
+  });
   dom.loadBtn.addEventListener("click", loadScore);
+  dom.xmlPath.addEventListener("input", () => selectFixtureByPath(dom.xmlPath.value.trim()));
   dom.filter.addEventListener("input", applyFilter);
 
   // Defer initial load slightly so the Verovio script can finish initializing.

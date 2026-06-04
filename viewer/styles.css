@@ -51,6 +51,16 @@ body {
   font: inherit;
 }
 
+#fixture-select {
+  min-width: 240px;
+  max-width: 340px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  background: white;
+}
+
 button {
   border: 1px solid #0284c7;
   background: var(--accent);
@@ -141,6 +151,40 @@ button {
   min-height: 320px;
 }
 
+.source-heading {
+  margin-top: 0.85rem !important;
+}
+
+.source-wrap {
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.6rem;
+  margin-top: 0.2rem;
+  max-height: 45vh;
+}
+
+.source-wrap.empty {
+  min-height: 72px;
+}
+
+#source-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: white;
+}
+
+#source-image:not([src]) {
+  display: none;
+}
+
+#source-caption {
+  margin-top: 0.45rem;
+  overflow-wrap: anywhere;
+}
+
 .notation [data-linked-note-id],
 .notation .note {
   transition: opacity 90ms linear;
@@ -164,6 +208,15 @@ button {
 @media (max-width: 1100px) {
   .layout {
     grid-template-columns: 1fr;
+  }
+
+  .controls {
+    flex-direction: column;
+  }
+
+  #fixture-select {
+    width: 100%;
+    max-width: none;
   }
 
   #note-table tbody {

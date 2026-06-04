@@ -12,10 +12,11 @@
     <header class="topbar">
       <h1>Notra Glyph-Link Viewer</h1>
       <div class="controls">
+        <select id="fixture-select" aria-label="Fixture picker"></select>
         <input
           id="xml-path"
           type="text"
-          value="../artifacts/executive/step-7/examples/02_complex_all_features.musicxml"
+          value="../tests/fixtures/golden/cello/01-fanfare.musicxml"
           aria-label="MusicXML path"
         />
         <button id="load-btn" type="button">Load</button>
@@ -45,6 +46,11 @@
         <h2>Rendered Score (Verovio)</h2>
         <div id="status" class="muted">Waiting to load...</div>
         <div id="notation" class="notation"></div>
+        <h2 class="source-heading">Source Page Image</h2>
+        <div id="source-wrap" class="source-wrap">
+          <img id="source-image" alt="Selected fixture source page" />
+          <div id="source-caption" class="muted"></div>
+        </div>
       </section>
 
       <aside class="panel right">
