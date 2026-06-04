@@ -36,6 +36,33 @@ would train the model to reproduce false positives.
 7. Validate against MusicXML counts, overlays, crops, and eventually rendered
    symbolic diffs.
 
+## Dynamic Inference Policy
+
+The deployable loop should not use one global threshold forever.
+
+1. First pass:
+   use conservative detection and a learned threshold to get high-confidence
+   noteheads.
+2. Build local symbolic hypotheses:
+   staff position, pitch, stem attachment, duration candidates, measure
+   assignment, and measure-duration validity.
+3. Detect violations:
+   impossible measure duration, missing stem relation, illegal spacing, too few
+   events for a measure, or too many events for a measure.
+4. Second pass:
+   run relaxed grayscale/line-position proposals only in suspicious regions or
+   as a full-page candidate pool during early development.
+5. Dynamic selection:
+   keep the best candidate set that satisfies the symbolic constraint. In the
+   current training script, MusicXML notehead count is used as a stand-in
+   target. Later this target must come from duration/measure decoding, not from
+   ground truth.
+6. Repeat until constraints stabilize or the page is marked for human review.
+
+Thresholding can only select from candidates that exist. If candidate recall is
+below the target, no threshold policy can reach 100%; the detector must run a
+broader proposal pass.
+
 ## Commands
 
 Generate notehead review artifacts:
@@ -57,6 +84,30 @@ UV_CACHE_DIR=/tmp/uv-cache uv run python scripts/generate_segmentation_pseudolab
   --profile cello \
   --min-notehead-confidence 0.82
 ```
+
+Train/evaluate the threshold policy on an 80/20 cello split:
+
+```bash
+UV_CACHE_DIR=/tmp/uv-cache uv run python scripts/train_notehead_threshold_policy.py \
+  --images-root tests/fixtures/images/cello \
+  --golden-root tests/fixtures/golden/cello \
+  --output-dir artifacts/training/noteheads/policy \
+  --profile cello \
+  --include-relaxed-rescue
+```
+
+Current count-level result with hash split and relaxed rescue:
+
+- learned threshold: `0.890`
+- fixed threshold train: `1/14` exact, MAE `10.429`
+- fixed threshold validation: `0/4` exact, MAE `6.000`
+- dynamic target-count train: `14/14` exact, MAE `0.000`
+- dynamic target-count validation: `4/4` exact, MAE `0.000`
+
+That proves the relaxed candidate pool has enough recall for count-level
+selection on these fixtures. It does not prove full OMR reconstruction; the
+next target must be measure-local duration constraints so the system can infer
+the target counts without MusicXML.
 
 ## Confidence
 

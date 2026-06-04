@@ -17,6 +17,7 @@ from typing import Any
 from PIL import Image, ImageDraw
 
 from notra.layout.symbol import NoteheadCandidate
+from notra.layout.symbol import detect_noteheads as detect_notehead_candidates
 from notra.pipeline import stages
 from notra.pipeline.config import PipelineConfig
 
@@ -30,6 +31,7 @@ class NoteheadPseudoLabelConfig:
     crop_padding_interlines: float = 0.75
     write_overlays: bool = True
     write_crops: bool = True
+    include_relaxed_rescue: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,7 +180,9 @@ def generate_notehead_pseudo_page(
         except Exception as exc:  # pragma: no cover - artifact path
             ctx.setdefault("errors", []).append(f"{stage_fn.__name__}: {exc}")
 
-    candidates = ctx.get("notehead_candidates", [])
+    candidates = tuple(ctx.get("notehead_candidates", []))
+    if config.include_relaxed_rescue:
+        candidates = _with_relaxed_rescue_candidates(candidates, ctx)
     labels = tuple(
         NoteheadPseudoLabel.from_candidate(idx, candidate, config)
         for idx, candidate in enumerate(candidates)
@@ -195,6 +199,68 @@ def generate_notehead_pseudo_page(
         errors=tuple(str(item) for item in ctx.get("errors", [])),
         warnings=tuple(str(item) for item in ctx.get("warnings", [])),
     )
+
+
+def _with_relaxed_rescue_candidates(
+    candidates: tuple[NoteheadCandidate, ...],
+    ctx: dict[str, Any],
+) -> tuple[NoteheadCandidate, ...]:
+    """Union conservative first-pass candidates with relaxed second-pass proposals."""
+    ink = ctx.get("ink")
+    gray = ctx.get("gray")
+    bands = ctx.get("staff_bands", [])
+    if ink is None or gray is None or not bands:
+        return candidates
+
+    relaxed = tuple(
+        detect_notehead_candidates(
+            ink,
+            bands,
+            gray=gray,
+            use_grayscale_fallback=True,
+            use_line_position_pass=True,
+        )
+    )
+    interline = float(ctx.get("interline_px", 0.0) or 0.0)
+    return _merge_notehead_candidates(candidates, relaxed, interline=interline)
+
+
+def _merge_notehead_candidates(
+    primary: tuple[NoteheadCandidate, ...],
+    secondary: tuple[NoteheadCandidate, ...],
+    *,
+    interline: float,
+) -> tuple[NoteheadCandidate, ...]:
+    """Merge relaxed proposals into the first-pass candidate set."""
+    merged = list(primary)
+    x_tol = max(3.0, interline * 0.25)
+    y_tol = max(3.0, interline * 0.35)
+
+    for candidate in secondary:
+        duplicate_index = _find_duplicate_notehead(candidate, merged, x_tol=x_tol, y_tol=y_tol)
+        if duplicate_index is None:
+            merged.append(candidate)
+            continue
+        if candidate.confidence > merged[duplicate_index].confidence:
+            merged[duplicate_index] = candidate
+
+    merged.sort(key=lambda item: (item.staff_band_index, item.cx, item.cy))
+    return tuple(merged)
+
+
+def _find_duplicate_notehead(
+    candidate: NoteheadCandidate,
+    existing: list[NoteheadCandidate],
+    *,
+    x_tol: float,
+    y_tol: float,
+) -> int | None:
+    for idx, item in enumerate(existing):
+        if candidate.staff_band_index != item.staff_band_index:
+            continue
+        if abs(candidate.cx - item.cx) <= x_tol and abs(candidate.cy - item.cy) <= y_tol:
+            return idx
+    return None
 
 
 def save_notehead_pseudo_artifacts(

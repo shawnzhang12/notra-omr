@@ -74,6 +74,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Do not write candidate crop images.",
     )
+    parser.add_argument(
+        "--include-relaxed-rescue",
+        action="store_true",
+        help="Union conservative candidates with relaxed grayscale/line-position rescue proposals.",
+    )
     return parser.parse_args()
 
 
@@ -103,6 +108,7 @@ def main() -> int:
         uncertain_threshold=float(args.uncertain_threshold),
         write_overlays=not bool(args.no_overlays),
         write_crops=not bool(args.no_crops),
+        include_relaxed_rescue=bool(args.include_relaxed_rescue),
     )
 
     image_paths = sorted(path for path in images_root.glob(args.glob) if path.is_file())
@@ -158,6 +164,7 @@ def main() -> int:
         "output_dir": str(output_dir),
         "positive_threshold": config.positive_threshold,
         "uncertain_threshold": config.uncertain_threshold,
+        "include_relaxed_rescue": config.include_relaxed_rescue,
         "record_count": len(records),
         "records": records,
     }
