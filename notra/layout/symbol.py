@@ -27,6 +27,8 @@ class NoteheadCandidate:
     is_filled: bool
     staff_step: float
     staff_band_index: int = 0
+    source: str = "manual"
+    confidence: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,13 +44,89 @@ class StemCandidate:
     length_px: int
 
 
+def _score_range(
+    value: float,
+    *,
+    low: float,
+    ideal_low: float,
+    ideal_high: float,
+    high: float,
+) -> float:
+    """Score a scalar against a trapezoidal acceptance window."""
+    if value < low or value > high:
+        return 0.0
+    if ideal_low <= value <= ideal_high:
+        return 1.0
+    if value < ideal_low:
+        width = max(ideal_low - low, 1e-6)
+        return max(0.0, (value - low) / width)
+    width = max(high - ideal_high, 1e-6)
+    return max(0.0, (high - value) / width)
+
+
+def _notehead_confidence(
+    *,
+    area: float,
+    bbox: tuple[int, int, int, int],
+    staff_step: float,
+    interline: float,
+    source: str,
+) -> float:
+    """Return a calibrated heuristic confidence for pseudo-label triage.
+
+    This is not a model probability. It is a deterministic quality score used
+    to separate high-confidence pseudo-labels from crops that need review.
+    """
+    x0, y0, x1, y1 = bbox
+    width_ratio = max(0.0, (x1 - x0 + 1.0) / interline)
+    height_ratio = max(0.0, (y1 - y0 + 1.0) / interline)
+    area_ratio = max(0.0, area / max(interline * interline, 1.0))
+    aspect = width_ratio / max(height_ratio, 1e-6)
+    staff_step_error = abs(staff_step - round(staff_step))
+
+    width_score = _score_range(width_ratio, low=0.45, ideal_low=0.75, ideal_high=1.35, high=1.90)
+    height_score = _score_range(
+        height_ratio,
+        low=0.35,
+        ideal_low=0.60,
+        ideal_high=1.25,
+        high=1.65,
+    )
+    area_score = _score_range(area_ratio, low=0.20, ideal_low=0.38, ideal_high=0.95, high=1.55)
+    aspect_score = _score_range(aspect, low=0.55, ideal_low=0.75, ideal_high=1.55, high=2.25)
+    staff_score = max(0.0, 1.0 - staff_step_error / 0.60)
+    shape_score = (
+        width_score * 0.25
+        + height_score * 0.25
+        + area_score * 0.25
+        + aspect_score * 0.15
+        + staff_score * 0.10
+    )
+
+    base_source = source.split(":", maxsplit=1)[0]
+    source_prior = {
+        "connected_component": 0.90,
+        "line_position": 0.76,
+        "grayscale_darkness": 0.68,
+        "manual": 1.00,
+    }.get(base_source, 0.55)
+    if "split" in source:
+        source_prior = min(source_prior, 0.72)
+
+    confidence = shape_score * 0.82 + source_prior * 0.18
+    return round(float(min(1.0, max(0.0, confidence))), 3)
+
+
 def _detect_noteheads_grayscale(
     gray: np.ndarray,
     staff_bands: list,
     interline: float,
-    min_area: float, max_area: float,
-    min_w: float, max_w: float,
-    min_h: float, max_h: float,
+    min_area: float,
+    max_area: float,
+    min_w: float,
+    max_w: float,
+    min_h: float,
+    max_h: float,
 ) -> list[NoteheadCandidate]:
     """Detect noteheads from grayscale by finding local darkness minima.
 
@@ -98,7 +176,7 @@ def _detect_noteheads_grayscale(
                         if not dark_mask[cy, cx] or labeled[cy, cx] != 0:
                             continue
                         labeled[cy, cx] = label_id
-                        stack.extend([(cy-1,cx), (cy+1,cx), (cy,cx-1), (cy,cx+1)])
+                        stack.extend([(cy - 1, cx), (cy + 1, cx), (cy, cx - 1), (cy, cx + 1)])
         num_features = label_id
 
         for lbl in range(1, num_features + 1):
@@ -140,20 +218,29 @@ def _detect_noteheads_grayscale(
             else:
                 is_filled = True
 
+            bbox = (
+                int(xs.min()),
+                int(ys.min() + y0),
+                int(xs.max()),
+                int(ys.max() + y0),
+            )
             candidates.append(
                 NoteheadCandidate(
                     cx=cx_img,
                     cy=cy_img,
-                    bbox=(
-                        int(xs.min()),
-                        int(ys.min() + y0),
-                        int(xs.max()),
-                        int(ys.max() + y0),
-                    ),
+                    bbox=bbox,
                     area=float(area),
                     is_filled=is_filled,
                     staff_step=step,
                     staff_band_index=band_idx,
+                    source="grayscale_darkness",
+                    confidence=_notehead_confidence(
+                        area=float(area),
+                        bbox=bbox,
+                        staff_step=step,
+                        interline=interline,
+                        source="grayscale_darkness",
+                    ),
                 )
             )
 
@@ -212,16 +299,37 @@ def detect_noteheads(
     candidates: list[NoteheadCandidate] = []
     seen_positions: set[tuple[int, int]] = set()
 
-    _accept_components(components, ink, staff_bands, interline,
-                       min_area, max_area, min_w, max_w, min_h, max_h,
-                       candidates, seen_positions, gray=gray)
+    _accept_components(
+        components,
+        ink,
+        staff_bands,
+        interline,
+        min_area,
+        max_area,
+        min_w,
+        max_w,
+        min_h,
+        max_h,
+        candidates,
+        seen_positions,
+        gray=gray,
+    )
 
     candidates = _split_chord_noteheads(candidates, interline, staff_bands)
 
     if use_line_position_pass:
         _detect_line_position_noteheads(
-            ink, staff_bands, interline, candidates, seen_positions,
-            min_area, max_area, min_w, max_w, min_h, max_h,
+            ink,
+            staff_bands,
+            interline,
+            candidates,
+            seen_positions,
+            min_area,
+            max_area,
+            min_w,
+            max_w,
+            min_h,
+            max_h,
         )
 
     # --- Pass 2: grayscale darkness components (anti-aliased fallback) ---
@@ -265,12 +373,16 @@ def _accept_components(
     img: np.ndarray,
     staff_bands: list,
     interline: float,
-    min_area: float, max_area: float,
-    min_w: float, max_w: float,
-    min_h: float, max_h: float,
+    min_area: float,
+    max_area: float,
+    min_w: float,
+    max_w: float,
+    min_h: float,
+    max_h: float,
     candidates: list[NoteheadCandidate],
     seen: set[tuple[int, int]],
     gray: np.ndarray | None = None,
+    source: str = "connected_component",
 ) -> None:
     """Filter components by size/position and add to candidates list."""
     for comp in comps:
@@ -306,15 +418,24 @@ def _accept_components(
             img, int(x0), int(y0), int(x1), int(y1), interline, gray=gray
         )
 
+        bbox = (int(x0), int(y0), int(x1), int(y1))
         candidates.append(
             NoteheadCandidate(
                 cx=cx,
                 cy=cy,
-                bbox=(int(x0), int(y0), int(x1), int(y1)),
+                bbox=bbox,
                 area=area,
                 is_filled=is_filled,
                 staff_step=step,
                 staff_band_index=band_idx,
+                source=source,
+                confidence=_notehead_confidence(
+                    area=area,
+                    bbox=bbox,
+                    staff_step=step,
+                    interline=interline,
+                    source=source,
+                ),
             )
         )
 
@@ -363,10 +484,10 @@ def _classify_notehead_filled(
             center_vals = gray[yc0:yc1, xc0:xc1].ravel()
 
             # Edge pixels: top, bottom, left, right strips near border
-            top_strip = gray[max(0, y0):min(h_g, y0 + margin + 1), max(0, x0):min(w_g, x1 + 1)]
-            bot_strip = gray[max(0, y1 - margin):min(h_g, y1 + 1), max(0, x0):min(w_g, x1 + 1)]
-            left_strip = gray[ey0:ey1, max(0, x0):min(w_g, x0 + margin + 1)]
-            right_strip = gray[ey0:ey1, max(0, x1 - margin):min(w_g, x1 + 1)]
+            top_strip = gray[max(0, y0) : min(h_g, y0 + margin + 1), max(0, x0) : min(w_g, x1 + 1)]
+            bot_strip = gray[max(0, y1 - margin) : min(h_g, y1 + 1), max(0, x0) : min(w_g, x1 + 1)]
+            left_strip = gray[ey0:ey1, max(0, x0) : min(w_g, x0 + margin + 1)]
+            right_strip = gray[ey0:ey1, max(0, x1 - margin) : min(w_g, x1 + 1)]
             edge_parts = []
             for s in [top_strip, bot_strip, left_strip, right_strip]:
                 if s.size > 0:
@@ -433,8 +554,11 @@ def detect_stems(
     # than 80 are ink (stems are typically 0-40 in rendered PNGs).
     use_gray = gray is not None and gray.size > 0
     if use_gray:
+        assert gray is not None
+        gray_img = gray
         dark_threshold = 80
     else:
+        gray_img = None
         dark_threshold = 128  # unused
 
     stems: list[StemCandidate] = []
@@ -487,7 +611,8 @@ def detect_stems(
             for y in range(search_start, search_end):
                 if 0 <= y < h and 0 <= sx < w:
                     if use_gray:
-                        val = 1 if int(gray[y, sx]) < dark_threshold else 0
+                        assert gray_img is not None
+                        val = 1 if int(gray_img[y, sx]) < dark_threshold else 0
                     else:
                         val = int(ink[y, sx])
                 else:
@@ -526,7 +651,7 @@ def detect_stems(
                     best_stem_end = search_end - 1
                     best_stem_x = sx
 
-        if best_stem_start is not None and best_stem_end is not None:
+        if best_stem_start is not None and best_stem_end is not None and best_stem_x is not None:
             stems.append(
                 StemCandidate(
                     notehead_cx=nh.cx,
@@ -675,9 +800,7 @@ def detect_clef_region(
     return ("G", 2)
 
 
-def _score_treble(
-    vproj: np.ndarray, band: "StaffBand", top: int
-) -> float:
+def _score_treble(vproj: np.ndarray, band: "StaffBand", top: int) -> float:
     """Score the treble clef hypothesis.
 
     Treble clef: the G curl wraps around line 2 (from bottom), and the
@@ -706,9 +829,7 @@ def _score_treble(
     return score_g_line * 2.0 + score_upper
 
 
-def _score_bass(
-    vproj: np.ndarray, band: "StaffBand", top: int
-) -> float:
+def _score_bass(vproj: np.ndarray, band: "StaffBand", top: int) -> float:
     """Score the bass clef hypothesis.
 
     Bass clef: two dots on either side of line 4, and the curved shape
@@ -736,9 +857,7 @@ def _score_bass(
     return dot_score
 
 
-def _score_alto(
-    vproj: np.ndarray, band: "StaffBand", top: int
-) -> float:
+def _score_alto(vproj: np.ndarray, band: "StaffBand", top: int) -> float:
     """Score the alto clef hypothesis.
 
     Alto clef: two vertical strokes meeting at line 3 (middle line).
@@ -981,6 +1100,7 @@ def classify_duration(
         value = base * (1.0 + multiplier)
         # Convert back to fraction
         from fractions import Fraction
+
         f = Fraction(value).limit_denominator(128)
         return f.numerator, f.denominator
 
@@ -1084,24 +1204,33 @@ def detect_rests(
 
         # Whole rest: wide, hanging from line 4, step ~6
         if aspect > 1.3 and 5.0 <= step <= 7.0:
-            region_ink = float(cleaned[max(0, y0):min(ink.shape[0], y1 + 1),
-                                       max(0, x0):min(ink.shape[1], x1 + 1)].sum())
+            region_ink = float(
+                cleaned[
+                    max(0, y0) : min(ink.shape[0], y1 + 1), max(0, x0) : min(ink.shape[1], x1 + 1)
+                ].sum()
+            )
             region_px = (y1 - y0 + 1) * (x1 - x0 + 1)
             if region_px > 0 and 0.30 < region_ink / region_px < 0.85:
                 is_rest = True
 
         # Half rest: wide, sitting on line 3, step ~4
         elif aspect > 1.3 and 3.0 <= step <= 5.0:
-            region_ink = float(cleaned[max(0, y0):min(ink.shape[0], y1 + 1),
-                                       max(0, x0):min(ink.shape[1], x1 + 1)].sum())
+            region_ink = float(
+                cleaned[
+                    max(0, y0) : min(ink.shape[0], y1 + 1), max(0, x0) : min(ink.shape[1], x1 + 1)
+                ].sum()
+            )
             region_px = (y1 - y0 + 1) * (x1 - x0 + 1)
             if region_px > 0 and 0.30 < region_ink / region_px < 0.85:
                 is_rest = True
 
         # Quarter/eighth rest: tall, near staff center, moderate ink
         elif aspect < 0.9 and 2.0 <= step <= 6.0:
-            region_ink = float(cleaned[max(0, y0):min(ink.shape[0], y1 + 1),
-                                       max(0, x0):min(ink.shape[1], x1 + 1)].sum())
+            region_ink = float(
+                cleaned[
+                    max(0, y0) : min(ink.shape[0], y1 + 1), max(0, x0) : min(ink.shape[1], x1 + 1)
+                ].sum()
+            )
             region_px = (y1 - y0 + 1) * (x1 - x0 + 1)
             if region_px > 0 and 0.20 < region_ink / region_px < 0.70:
                 is_rest = True
@@ -1110,10 +1239,19 @@ def detect_rests(
             continue
 
         rest_count_per_staff[band_idx] = rest_count_per_staff.get(band_idx, 0) + 1
-        rests.append(NoteheadCandidate(
-            cx=cx, cy=cy, bbox=(int(x0), int(y0), int(x1), int(y1)),
-            area=area, is_filled=False, staff_step=step, staff_band_index=band_idx,
-        ))
+        rests.append(
+            NoteheadCandidate(
+                cx=cx,
+                cy=cy,
+                bbox=(int(x0), int(y0), int(x1), int(y1)),
+                area=area,
+                is_filled=False,
+                staff_step=step,
+                staff_band_index=band_idx,
+                source="rest_candidate",
+                confidence=0.70,
+            )
+        )
 
     rests.sort(key=lambda r: r.cx)
     return rests
@@ -1212,8 +1350,9 @@ def assign_voice_from_stems(
     voice_map: dict[int, int] = {}
     for idx, nh in enumerate(noteheads):
         stem = stem_map.get(idx)
-        voice_map[idx] = 1 if (stem is not None and stem.direction == "up") else (
-            2 if stem is not None else 1)
+        voice_map[idx] = (
+            1 if (stem is not None and stem.direction == "up") else (2 if stem is not None else 1)
+        )
 
     # Stemless noteheads: inherit from nearest stemmed in same staff
     for idx, nh in enumerate(noteheads):
@@ -1295,13 +1434,17 @@ def merge_bisected_components(
         if best_j >= 0:
             b = comps[best_j]
             ma = a[0] + b[0]
-            merged.append((
-                ma,
-                (a[1] * a[0] + b[1] * b[0]) / ma,
-                (a[2] * a[0] + b[2] * b[0]) / ma,
-                min(a[3], b[3]), min(a[4], b[4]),
-                max(a[5], b[5]), max(a[6], b[6]),
-            ))
+            merged.append(
+                (
+                    ma,
+                    (a[1] * a[0] + b[1] * b[0]) / ma,
+                    (a[2] * a[0] + b[2] * b[0]) / ma,
+                    min(a[3], b[3]),
+                    min(a[4], b[4]),
+                    max(a[5], b[5]),
+                    max(a[6], b[6]),
+                )
+            )
             used.add(i)
             used.add(best_j)
         else:
@@ -1322,9 +1465,12 @@ def _detect_line_position_noteheads(
     interline: float,
     candidates: list[NoteheadCandidate],
     seen: set[tuple[int, int]],
-    min_area: float, max_area: float,
-    min_w: float, max_w: float,
-    min_h: float, max_h: float,
+    min_area: float,
+    max_area: float,
+    min_w: float,
+    max_w: float,
+    min_h: float,
+    max_h: float,
 ) -> None:
     """Detect noteheads sitting directly on staff lines via projection.
 
@@ -1393,9 +1539,10 @@ def _detect_line_position_noteheads(
                     # Estimate vertical extent by checking ink above/below
                     local_y0 = max(0, ly - int(interline * 0.7))
                     local_y1 = min(h, ly + int(interline * 0.7) + 1)
-                    local = ink[local_y0:local_y1,
-                                max(0, int(cx - interline)):
-                                min(w, int(cx + interline) + 1)]
+                    local = ink[
+                        local_y0:local_y1,
+                        max(0, int(cx - interline)) : min(w, int(cx + interline) + 1),
+                    ]
                     if local.size == 0:
                         continue
 
@@ -1424,19 +1571,37 @@ def _detect_line_position_noteheads(
                     seen.add(pos_key)
 
                     is_filled = _classify_notehead_filled(
-                        ink, max(0, int(cx - interline)),
+                        ink,
+                        max(0, int(cx - interline)),
                         actual_y0,
                         min(w, int(cx + interline) + 1),
-                        actual_y1, interline,
+                        actual_y1,
+                        interline,
                     )
 
+                    bbox = (
+                        max(0, int(cx - interline)),
+                        actual_y0,
+                        min(w, int(cx + interline) + 1),
+                        actual_y1,
+                    )
                     candidates.append(
                         NoteheadCandidate(
-                            cx=cx, cy=cy,
-                            bbox=(max(0, int(cx - interline)), actual_y0,
-                                  min(w, int(cx + interline) + 1), actual_y1),
-                            area=area, is_filled=is_filled,
-                            staff_step=step, staff_band_index=band_idx,
+                            cx=cx,
+                            cy=cy,
+                            bbox=bbox,
+                            area=area,
+                            is_filled=is_filled,
+                            staff_step=step,
+                            staff_band_index=band_idx,
+                            source="line_position",
+                            confidence=_notehead_confidence(
+                                area=area,
+                                bbox=bbox,
+                                staff_step=step,
+                                interline=interline,
+                                source="line_position",
+                            ),
                         )
                     )
 
@@ -1486,19 +1651,51 @@ def _split_chord_noteheads(
             continue
 
         # Split vertically at midpoint
+        upper_bbox = (x0, y0, x1, int(mid_y))
+        upper_step_value = band.staff_step_from_y((y0 + mid_y) / 2.0)
+        upper_source = f"{nh.source}:split"
         upper = NoteheadCandidate(
-            cx=nh.cx, cy=(y0 + mid_y) / 2.0,
-            bbox=(x0, y0, x1, int(mid_y)),
-            area=nh.area / 2.0, is_filled=nh.is_filled,
-            staff_step=band.staff_step_from_y((y0 + mid_y) / 2.0),
+            cx=nh.cx,
+            cy=(y0 + mid_y) / 2.0,
+            bbox=upper_bbox,
+            area=nh.area / 2.0,
+            is_filled=nh.is_filled,
+            staff_step=upper_step_value,
             staff_band_index=nh.staff_band_index,
+            source=upper_source,
+            confidence=min(
+                nh.confidence,
+                _notehead_confidence(
+                    area=nh.area / 2.0,
+                    bbox=upper_bbox,
+                    staff_step=upper_step_value,
+                    interline=interline,
+                    source=upper_source,
+                ),
+            ),
         )
+        lower_bbox = (x0, int(mid_y) + 1, x1, y1)
+        lower_step_value = band.staff_step_from_y((mid_y + y1) / 2.0)
+        lower_source = f"{nh.source}:split"
         lower = NoteheadCandidate(
-            cx=nh.cx, cy=(mid_y + y1) / 2.0,
-            bbox=(x0, int(mid_y) + 1, x1, y1),
-            area=nh.area / 2.0, is_filled=nh.is_filled,
-            staff_step=band.staff_step_from_y((mid_y + y1) / 2.0),
+            cx=nh.cx,
+            cy=(mid_y + y1) / 2.0,
+            bbox=lower_bbox,
+            area=nh.area / 2.0,
+            is_filled=nh.is_filled,
+            staff_step=lower_step_value,
             staff_band_index=nh.staff_band_index,
+            source=lower_source,
+            confidence=min(
+                nh.confidence,
+                _notehead_confidence(
+                    area=nh.area / 2.0,
+                    bbox=lower_bbox,
+                    staff_step=lower_step_value,
+                    interline=interline,
+                    source=lower_source,
+                ),
+            ),
         )
         result.append(upper)
         result.append(lower)
@@ -1511,9 +1708,7 @@ def _split_chord_noteheads(
 # ---------------------------------------------------------------------------
 
 
-def _erase_staff_lines(
-    ink: np.ndarray, bands: list, half_width: int
-) -> None:
+def _erase_staff_lines(ink: np.ndarray, bands: list, half_width: int) -> None:
     """Zero out pixels near staff lines in-place."""
     for band in bands:
         for line_y in band.line_ys:
@@ -1534,9 +1729,14 @@ def _find_connected_components(
     components: list[tuple[float, float, float, int, int, int, int]] = []
 
     neighbors = [
-        (-1, -1), (-1, 0), (-1, 1),
-        (0, -1),           (0, 1),
-        (1, -1),  (1, 0),  (1, 1),
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+        (0, -1),
+        (0, 1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
     ]
 
     for y in range(h):
@@ -1570,12 +1770,17 @@ def _find_connected_components(
                     stack.append((ny, nx))
 
             if pixel_count > 0:
-                components.append((
-                    float(pixel_count),
-                    sum_x / float(pixel_count),
-                    sum_y / float(pixel_count),
-                    min_x, min_y, max_x, max_y,
-                ))
+                components.append(
+                    (
+                        float(pixel_count),
+                        sum_x / float(pixel_count),
+                        sum_y / float(pixel_count),
+                        min_x,
+                        min_y,
+                        max_x,
+                        max_y,
+                    )
+                )
 
     return components
 

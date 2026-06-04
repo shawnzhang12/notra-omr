@@ -15,6 +15,7 @@ from typing import Any
 
 from notra.pipeline.config import PipelineConfig
 from notra.vision.pseudolabels import (
+    PseudoMaskConfig,
     generate_pseudo_segmentation_mask,
     save_pseudo_mask_artifacts,
 )
@@ -42,6 +43,12 @@ def parse_args() -> argparse.Namespace:
         default="auto",
         choices=["auto", "default", "cello"],
         help="Pipeline profile for pseudo-label generation.",
+    )
+    parser.add_argument(
+        "--min-notehead-confidence",
+        type=float,
+        default=0.0,
+        help="Drop notehead pseudo-labels below this deterministic confidence score.",
     )
     return parser.parse_args()
 
@@ -71,6 +78,7 @@ def main() -> int:
 
         result = generate_pseudo_segmentation_mask(
             image_path,
+            config=PseudoMaskConfig(min_notehead_confidence=float(args.min_notehead_confidence)),
             pipeline_config=_pipeline_config(str(args.profile), image_path),
         )
         paths = save_pseudo_mask_artifacts(result, page_dir, stem=rel.stem)

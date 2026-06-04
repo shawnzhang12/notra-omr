@@ -24,3 +24,5 @@ def test_grayscale_notehead_bbox_uses_page_coordinates() -> None:
     assert noteheads[0].cy >= 58
     assert noteheads[0].bbox[1] >= 58
     assert noteheads[0].bbox[3] <= 66
+    assert noteheads[0].source == "grayscale_darkness"
+    assert 0.0 < noteheads[0].confidence <= 1.0

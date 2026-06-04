@@ -1,6 +1,11 @@
 """Vision-layer schema and segmentation utilities."""
 
 from notra.vision.models import TinyUNetConfig, build_segmentation_model, torch_available
+from notra.vision.notehead_pseudolabels import (
+    NoteheadPseudoLabelConfig,
+    NoteheadPseudoPage,
+    generate_notehead_pseudo_page,
+)
 from notra.vision.pseudolabels import (
     PseudoMaskConfig,
     PseudoMaskResult,
@@ -13,12 +18,15 @@ from notra.vision.segmentation import SegmentationInstanceExtractor
 __all__ = [
     "PseudoMaskConfig",
     "PseudoMaskResult",
+    "NoteheadPseudoLabelConfig",
+    "NoteheadPseudoPage",
     "SegmentationClass",
     "SegmentationInstanceExtractor",
     "SymbolInstance",
     "TinyUNetConfig",
     "build_segmentation_model",
     "colorize_mask",
+    "generate_notehead_pseudo_page",
     "generate_pseudo_segmentation_mask",
     "torch_available",
 ]

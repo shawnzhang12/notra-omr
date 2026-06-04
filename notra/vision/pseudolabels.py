@@ -64,6 +64,7 @@ class PseudoMaskConfig:
     notehead_padding_interlines: float = 0.10
     min_notehead_staff_step: float = -4.0
     max_notehead_staff_step: float = 12.0
+    min_notehead_confidence: float = 0.0
     label_notehead_ellipse: bool = True
     include_clef_region: bool = True
     include_accidentals: bool = False
@@ -392,6 +393,8 @@ def _paint_notehead_like(
             if item.staff_step < config.min_notehead_staff_step:
                 continue
             if item.staff_step > config.max_notehead_staff_step:
+                continue
+            if item.confidence < config.min_notehead_confidence:
                 continue
         x0, y0, x1, y1 = item.bbox
         x0 -= padding
