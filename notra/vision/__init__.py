@@ -1,6 +1,13 @@
 """Vision-layer schema and segmentation utilities."""
 
 from notra.vision.models import TinyUNetConfig, build_segmentation_model, torch_available
+from notra.vision.notehead_measure_policy import (
+    LeakFreeEvaluationResult,
+    MeasureSelectionConfig,
+    PageMeasureSelectionResult,
+    evaluate_leak_free_results,
+    solve_noteheads_by_measure,
+)
 from notra.vision.notehead_policy import (
     EvaluationResult,
     SelectionResult,
@@ -28,6 +35,9 @@ __all__ = [
     "NoteheadPseudoLabelConfig",
     "NoteheadPseudoPage",
     "EvaluationResult",
+    "LeakFreeEvaluationResult",
+    "MeasureSelectionConfig",
+    "PageMeasureSelectionResult",
     "SelectionResult",
     "SegmentationClass",
     "SegmentationInstanceExtractor",
@@ -36,9 +46,11 @@ __all__ = [
     "TinyUNetConfig",
     "build_segmentation_model",
     "colorize_mask",
+    "evaluate_leak_free_results",
     "fit_global_threshold",
     "generate_notehead_pseudo_page",
     "generate_pseudo_segmentation_mask",
     "select_noteheads",
+    "solve_noteheads_by_measure",
     "torch_available",
 ]

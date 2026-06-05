@@ -1,10 +1,9 @@
 """Trainable notehead candidate selection policies.
 
 This module does not try to solve OMR semantics. It selects from a candidate
-pool. A threshold policy is ordinary inference. A target-count policy is the
-dynamic second-pass hook used by future duration/measure solvers: if symbolic
-constraints say the current page or measure is missing/overfull, choose the
-highest-confidence candidate set that satisfies the constraint.
+pool. A threshold policy is ordinary inference. A target-count policy is an
+oracle upper bound when the target comes from MusicXML; it must not be reported
+as leak-free validation.
 """
 
 from __future__ import annotations
@@ -150,17 +149,17 @@ def evaluate_threshold(
     )
 
 
-def evaluate_dynamic_target_count(
+def evaluate_oracle_target_count_upper_bound(
     pages: Iterable[NoteheadPseudoPage],
     *,
     threshold: float,
     min_dynamic_confidence: float = 0.0,
 ) -> EvaluationResult:
-    """Evaluate dynamic selection using MusicXML counts as a constraint oracle.
+    """Evaluate target-count selection using MusicXML counts as an oracle.
 
-    This is an upper bound for a future duration/measure solver. It answers:
-    if the symbolic stage knew the target count, is the visual candidate pool
-    rich enough to select that many noteheads?
+    This is a leak by design. It answers only: if a future symbolic solver knew
+    the target count, is the visual candidate pool rich enough to select that
+    many noteheads?
     """
 
     def _select(page: NoteheadPseudoPage) -> SelectionResult:

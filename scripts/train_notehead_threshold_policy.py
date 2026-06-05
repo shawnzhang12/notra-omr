@@ -23,8 +23,13 @@ from pathlib import Path
 from typing import Any
 
 from notra.pipeline.config import PipelineConfig
+from notra.vision.notehead_measure_policy import (
+    MeasureSelectionConfig,
+    evaluate_leak_free_results,
+    solve_noteheads_by_measure,
+)
 from notra.vision.notehead_policy import (
-    evaluate_dynamic_target_count,
+    evaluate_oracle_target_count_upper_bound,
     evaluate_threshold,
     fit_global_threshold,
     threshold_grid,
@@ -90,7 +95,13 @@ def parse_args() -> argparse.Namespace:
         "--min-dynamic-confidence",
         type=float,
         default=0.0,
-        help="Minimum confidence allowed for dynamic top-K repair.",
+        help="Minimum confidence allowed for oracle top-K repair.",
+    )
+    parser.add_argument(
+        "--min-measure-candidate-confidence",
+        type=float,
+        default=0.0,
+        help="Minimum confidence allowed in leak-free measure solving.",
     )
     return parser.parse_args()
 
@@ -131,15 +142,46 @@ def main() -> int:
     fit = fit_global_threshold(train_pages, thresholds=grid)
     train_threshold = evaluate_threshold(train_pages, threshold=fit.threshold)
     validation_threshold = evaluate_threshold(validation_pages, threshold=fit.threshold)
-    train_dynamic = evaluate_dynamic_target_count(
+    train_oracle = evaluate_oracle_target_count_upper_bound(
         train_pages,
         threshold=fit.threshold,
         min_dynamic_confidence=float(args.min_dynamic_confidence),
     )
-    validation_dynamic = evaluate_dynamic_target_count(
+    validation_oracle = evaluate_oracle_target_count_upper_bound(
         validation_pages,
         threshold=fit.threshold,
         min_dynamic_confidence=float(args.min_dynamic_confidence),
+    )
+    measure_config = MeasureSelectionConfig(
+        threshold=fit.threshold,
+        include_relaxed_rescue=bool(args.include_relaxed_rescue),
+        min_candidate_confidence=float(args.min_measure_candidate_confidence),
+    )
+    train_measure_pages = [
+        solve_noteheads_by_measure(
+            fixture.image_path,
+            config=measure_config,
+            pipeline_config=_pipeline_config(str(args.profile), fixture.image_path),
+        )
+        for fixture in train_fixtures
+    ]
+    validation_measure_pages = [
+        solve_noteheads_by_measure(
+            fixture.image_path,
+            config=measure_config,
+            pipeline_config=_pipeline_config(str(args.profile), fixture.image_path),
+        )
+        for fixture in validation_fixtures
+    ]
+    train_gt_counts = _gt_counts_from_pages(train_pages)
+    validation_gt_counts = _gt_counts_from_pages(validation_pages)
+    train_leak_free = evaluate_leak_free_results(
+        train_measure_pages,
+        gt_notehead_counts=train_gt_counts,
+    )
+    validation_leak_free = evaluate_leak_free_results(
+        validation_measure_pages,
+        gt_notehead_counts=validation_gt_counts,
     )
 
     report: dict[str, Any] = {
@@ -148,6 +190,7 @@ def main() -> int:
         "profile": str(args.profile),
         "include_relaxed_rescue": config.include_relaxed_rescue,
         "min_dynamic_confidence": float(args.min_dynamic_confidence),
+        "min_measure_candidate_confidence": float(args.min_measure_candidate_confidence),
         "threshold_grid": {
             "start": float(args.threshold_start),
             "stop": float(args.threshold_stop),
@@ -163,12 +206,20 @@ def main() -> int:
         "metrics": {
             "train_threshold": train_threshold.to_dict(),
             "validation_threshold": validation_threshold.to_dict(),
-            "train_dynamic_target_count": train_dynamic.to_dict(),
-            "validation_dynamic_target_count": validation_dynamic.to_dict(),
+            "train_oracle_target_count_upper_bound": train_oracle.to_dict(),
+            "validation_oracle_target_count_upper_bound": validation_oracle.to_dict(),
+            "train_leak_free_measure_solver": train_leak_free.to_dict(),
+            "validation_leak_free_measure_solver": validation_leak_free.to_dict(),
         },
         "pages": {
             "train": [_page_summary(page) for page in train_pages],
             "validation": [_page_summary(page) for page in validation_pages],
+            "train_leak_free_measure_solver": [
+                _measure_page_summary(page) for page in train_measure_pages
+            ],
+            "validation_leak_free_measure_solver": [
+                _measure_page_summary(page) for page in validation_measure_pages
+            ],
         },
     }
     policy = {
@@ -177,6 +228,7 @@ def main() -> int:
         "threshold": fit.threshold,
         "include_relaxed_rescue": config.include_relaxed_rescue,
         "min_dynamic_confidence": float(args.min_dynamic_confidence),
+        "min_measure_candidate_confidence": float(args.min_measure_candidate_confidence),
         "fit": fit.to_dict(),
     }
 
@@ -263,6 +315,19 @@ def _page_summary(page: NoteheadPseudoPage) -> dict[str, object]:
     }
 
 
+def _measure_page_summary(page: Any) -> dict[str, object]:
+    return page.to_summary()
+
+
+def _gt_counts_from_pages(pages: list[NoteheadPseudoPage]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for page in pages:
+        if page.musicxml_counts is None:
+            continue
+        counts[page.image_path.parent.name] = page.musicxml_counts.pitched_noteheads
+    return counts
+
+
 def _print_summary(report: dict[str, Any], *, report_path: Path, policy_path: Path) -> None:
     metrics = report["metrics"]
     print(f"selected threshold: {report['selected_threshold']:.3f}")
@@ -271,8 +336,8 @@ def _print_summary(report: dict[str, Any], *, report_path: Path, policy_path: Pa
     for name in (
         "train_threshold",
         "validation_threshold",
-        "train_dynamic_target_count",
-        "validation_dynamic_target_count",
+        "train_oracle_target_count_upper_bound",
+        "validation_oracle_target_count_upper_bound",
     ):
         item = metrics[name]
         print(
@@ -280,6 +345,17 @@ def _print_summary(report: dict[str, Any], *, report_path: Path, policy_path: Pa
             f"mae={item['mean_abs_error']:.3f} "
             f"selected/target={item['total_selected']}/{item['total_target']} "
             f"infeasible={item['infeasible_count']}"
+        )
+    for name in (
+        "train_leak_free_measure_solver",
+        "validation_leak_free_measure_solver",
+    ):
+        item = metrics[name]
+        print(
+            f"{name}: exact_pages={item['exact_page_count']}/{item['fixture_count']} "
+            f"mae={item['mean_abs_notehead_count_error']:.3f} "
+            f"selected/gt={item['total_selected_noteheads']}/{item['total_gt_noteheads']} "
+            f"valid_measures={item['valid_measure_count']}/{item['total_measure_count']}"
         )
     print(f"[done] wrote report to {report_path}")
     print(f"[done] wrote policy to {policy_path}")

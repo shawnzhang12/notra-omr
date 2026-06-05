@@ -96,18 +96,23 @@ UV_CACHE_DIR=/tmp/uv-cache uv run python scripts/train_notehead_threshold_policy
   --include-relaxed-rescue
 ```
 
-Current count-level result with hash split and relaxed rescue:
+Current result with hash split and relaxed rescue:
 
 - learned threshold: `0.890`
 - fixed threshold train: `1/14` exact, MAE `10.429`
 - fixed threshold validation: `0/4` exact, MAE `6.000`
-- dynamic target-count train: `14/14` exact, MAE `0.000`
-- dynamic target-count validation: `4/4` exact, MAE `0.000`
+- oracle target-count upper bound train: `14/14` exact, MAE `0.000`
+- oracle target-count upper bound validation: `4/4` exact, MAE `0.000`
+- leak-free measure solver train: `1/14` exact pages, MAE `14.643`,
+  valid measures `180/203`
+- leak-free measure solver validation: `1/4` exact pages, MAE `14.250`,
+  valid measures `63/87`
 
 That proves the relaxed candidate pool has enough recall for count-level
-selection on these fixtures. It does not prove full OMR reconstruction; the
-next target must be measure-local duration constraints so the system can infer
-the target counts without MusicXML.
+oracle selection on these fixtures. The leak-free solver is the real inference
+metric and is not yet good enough. The next target is duration/stem/rest scoring:
+many measures can be duration-valid while still selecting the wrong number of
+visual noteheads.
 
 ## Confidence
 
