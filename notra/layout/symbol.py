@@ -1421,10 +1421,10 @@ def merge_bisected_components(
             b = comps[j]
             if abs(a[1] - b[1]) > max_x_off:
                 continue
-            if a[5] < b[4]:
-                gap = b[4] - a[5]
-            elif b[5] < a[4]:
-                gap = a[4] - b[5]
+            if a[6] < b[4]:
+                gap = b[4] - a[6]
+            elif b[6] < a[4]:
+                gap = a[4] - b[6]
             else:
                 continue
             if 0 < gap < max_gap and gap < best_gap:

@@ -36,10 +36,11 @@ Default scope excludes `untitled_score`.
 
 Current result:
 
-- valid measures: `244/247`
+- valid measures: `242/247`
+- valid measures excluding `lista-trio_sonata_in_d_minor`: `204/204`
 - all-valid pages: `16/17`
 - flat exact duration pages: `0/17`
-- predicted events vs ground truth events: `1068/967`
+- predicted events vs ground truth events: `1073/967`
 
 The remaining invalid measures are in `lista-trio_sonata_in_d_minor`. They are
 not solved by changing local duration rules alone:
@@ -51,3 +52,14 @@ not solved by changing local duration rules alone:
 Adding fake gap rests would make the measure-validity number look better while
 hiding upstream note/rest detection errors. The next correct step is better
 event selection and symbol grouping, not an unconditional duration filler.
+
+## Event-Selection Finding
+
+The first event-grouping fix corrected `merge_bisected_components`, which was
+comparing an x-coordinate against a y-coordinate when checking vertical gaps.
+That bug prevented staff-line-split notehead halves from merging.
+
+A simulated structural-opening cutoff improves page-level event-count deltas,
+but does not improve exact measure sequences and removes real early candidates
+from under-detected pages. Do not add a blanket opening cutoff yet; make the
+next candidate-selection pass measure-aware.
