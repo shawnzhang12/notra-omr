@@ -103,16 +103,26 @@ Current result with hash split and relaxed rescue:
 - fixed threshold validation: `0/4` exact, MAE `6.000`
 - oracle target-count upper bound train: `14/14` exact, MAE `0.000`
 - oracle target-count upper bound validation: `4/4` exact, MAE `0.000`
-- leak-free measure solver train: `1/14` exact pages, MAE `14.643`,
-  valid measures `180/203`
-- leak-free measure solver validation: `1/4` exact pages, MAE `14.250`,
-  valid measures `63/87`
+- leak-free measure solver train: `1/14` exact pages, MAE `14.571`,
+  valid measures `203/203`
+- leak-free measure solver validation: `0/4` exact pages, MAE `13.250`,
+  valid measures `87/87`
 
 That proves the relaxed candidate pool has enough recall for count-level
 oracle selection on these fixtures. The leak-free solver is the real inference
-metric and is not yet good enough. The next target is duration/stem/rest scoring:
-many measures can be duration-valid while still selecting the wrong number of
-visual noteheads.
+metric. Measure-duration validity is now solved for this split, but full OMR is
+not: many measures can be duration-valid while still selecting the wrong number
+of visual noteheads.
+
+Show measure-level overlays for the validation split:
+
+```bash
+UV_CACHE_DIR=/tmp/uv-cache uv run python scripts/debug_leak_free_measures.py \
+  --policy artifacts/training/noteheads/policy/policy.json \
+  --split validation \
+  --include-relaxed-rescue \
+  --output-dir artifacts/debug/noteheads/leak_free_measures
+```
 
 ## Confidence
 

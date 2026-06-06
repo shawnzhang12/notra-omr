@@ -19,7 +19,8 @@ from notra.layout.stem_detector import detect_stems_global
 from notra.layout.symbol import NoteheadCandidate
 from notra.pipeline import stages
 from notra.pipeline.config import PipelineConfig
-from notra.semantics import SymbolCandidate, generate_duration_candidates
+from notra.semantics import DurationCandidate, SymbolCandidate, generate_duration_candidates
+from notra.semantics import expected_ticks as expected_measure_ticks
 from notra.semantics.rhythm_solver import decode_measure_rhythm
 from notra.vision.notehead_pseudolabels import (
     NoteheadPseudoLabel,
@@ -178,6 +179,7 @@ def solve_noteheads_by_measure(
         stages.detect_clefs_stage,
         stages.detect_noteheads_stage,
         stages.detect_time_signature_stage,
+        stages.detect_rests_stage,
     ):
         try:
             stage_fn(ctx)
@@ -185,6 +187,7 @@ def solve_noteheads_by_measure(
             ctx.setdefault("errors", []).append(f"{stage_fn.__name__}: {exc}")
 
     noteheads = tuple(ctx.get("notehead_candidates", []))
+    rest_candidates = tuple(ctx.get("rest_candidates", []))
     if config.include_relaxed_rescue:
         noteheads = _with_relaxed_rescue_candidates(noteheads, ctx)
 
@@ -217,6 +220,8 @@ def solve_noteheads_by_measure(
         stem_map=stem_map,
         flag_map=flag_map,
         config=config,
+        rest_candidates=rest_candidates,
+        expected_ticks=expected_measure_ticks(time_beats, time_beat_type),
     )
 
     measure_results: list[MeasureSelectionResult] = []
@@ -439,6 +444,8 @@ def _build_symbol_candidates_by_measure(
     stem_map: dict[int, Any],
     flag_map: dict[int, int],
     config: MeasureSelectionConfig,
+    rest_candidates: tuple[NoteheadCandidate, ...],
+    expected_ticks: int,
 ) -> dict[str, list[SymbolCandidate]]:
     by_measure: dict[str, list[SymbolCandidate]] = {}
     boundaries_by_system: dict[int, list[MeasureBoundary]] = {}
@@ -457,6 +464,12 @@ def _build_symbol_candidates_by_measure(
         measure_id = _measure_id(matched_boundary)
         assignments.append((label, notehead, matched_boundary, measure_id))
 
+    note_assignment_count_by_measure: dict[str, int] = {}
+    for _label, _notehead, _boundary, measure_id in assignments:
+        note_assignment_count_by_measure[measure_id] = (
+            note_assignment_count_by_measure.get(measure_id, 0) + 1
+        )
+
     for label, notehead, _boundary, measure_id in assignments:
         has_stem = label.index in stem_map
         flag_count = flag_map.get(label.index, 0)
@@ -466,6 +479,8 @@ def _build_symbol_candidates_by_measure(
             flag_count=flag_count,
             is_rest=False,
         )
+        if note_assignment_count_by_measure.get(measure_id, 0) == 1:
+            _add_measure_fill_duration(duration_candidates, expected_ticks)
         evidence_score = (notehead.confidence - config.threshold) * config.confidence_score_scale
         for duration in duration_candidates:
             duration.visual_score += evidence_score
@@ -496,9 +511,71 @@ def _build_symbol_candidates_by_measure(
             )
         )
 
+    note_candidate_count_by_measure = {
+        measure_id: len(candidates) for measure_id, candidates in by_measure.items()
+    }
+    for rest_index, rest in enumerate(rest_candidates):
+        system_index = _system_for_staff(rest.staff_band_index, system_members)
+        matched_boundary = _boundary_for_x(boundaries_by_system.get(system_index, []), rest.cx)
+        if matched_boundary is None:
+            continue
+        measure_id = _measure_id(matched_boundary)
+        note_candidate_count = note_candidate_count_by_measure.get(measure_id, 0)
+        rest_duration_candidates = generate_duration_candidates(
+            is_filled=False,
+            has_stem=False,
+            flag_count=0,
+            is_rest=True,
+        )
+        full_measure_score = 1.5 if note_candidate_count == 0 else -2.0
+        rest_duration_candidates.insert(
+            0,
+            DurationCandidate(
+                expected_ticks,
+                "whole",
+                stem_required=False,
+                visual_score=full_measure_score,
+            ),
+        )
+        by_measure.setdefault(measure_id, []).append(
+            SymbolCandidate(
+                id=f"rest_{rest_index}",
+                bbox=rest.bbox,
+                staff_id=rest.staff_band_index,
+                measure_id=measure_id,
+                x=rest.cx,
+                y=rest.cy,
+                is_filled=False,
+                has_stem=False,
+                flag_count=0,
+                is_rest=True,
+                duration_candidates=rest_duration_candidates,
+                false_positive_score=-0.5,
+                kind="rest",
+            )
+        )
+
     for candidates in by_measure.values():
         candidates.sort(key=lambda item: item.x)
     return by_measure
+
+
+def _add_measure_fill_duration(
+    duration_candidates: list[DurationCandidate],
+    expected_ticks: int,
+) -> None:
+    """Allow a single ambiguous symbol to fill the detected measure duration."""
+    if any(candidate.adjusted_ticks == expected_ticks for candidate in duration_candidates):
+        return
+    duration_candidates.insert(
+        0,
+        DurationCandidate(
+            expected_ticks,
+            "whole",
+            stem_required=False,
+            visual_score=0.4,
+        ),
+    )
 
 
 def _system_for_staff(staff_index: int, system_members: list[list[int]]) -> int:

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from notra.semantics import DurationCandidate
 from notra.vision.notehead_measure_policy import (
     MeasureSelectionResult,
     PageMeasureSelectionResult,
+    _add_measure_fill_duration,
     evaluate_leak_free_results,
 )
 
@@ -44,3 +46,12 @@ def test_evaluate_leak_free_results_scores_after_inference() -> None:
     assert result.mean_abs_notehead_count_error == 0.0
     assert result.valid_measure_count == 1
     assert result.total_measure_count == 1
+
+
+def test_add_measure_fill_duration_adds_three_four_measure_length() -> None:
+    durations = [DurationCandidate(960, "half", visual_score=-0.1)]
+
+    _add_measure_fill_duration(durations, expected_ticks=1440)
+
+    assert durations[0].adjusted_ticks == 1440
+    assert durations[0].note_type == "whole"
