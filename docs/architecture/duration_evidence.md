@@ -63,3 +63,23 @@ A simulated structural-opening cutoff improves page-level event-count deltas,
 but does not improve exact measure sequences and removes real early candidates
 from under-detected pages. Do not add a blanket opening cutoff yet; make the
 next candidate-selection pass measure-aware.
+
+## Supervised Exact Duration Labels
+
+Command:
+
+```bash
+uv run python scripts/eval_cello_supervised_duration_selection.py
+```
+
+This mode uses MusicXML duration sequences during selection. It is for
+pseudo-label generation and upper-bound diagnostics, not leak-free inference.
+With relaxed notehead rescue enabled, current result excluding `untitled_score`:
+
+- exact duration pages: `17/17`
+- exact measures: `247/247`
+- selected events vs ground truth events: `967/967`
+
+This proves the visual candidate pool is sufficient for exact supervised
+duration-constrained notehead labels. The remaining research/engineering gap is
+learning or inferring this selection without using MusicXML at validation time.
