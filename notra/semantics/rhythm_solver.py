@@ -11,6 +11,7 @@ False positive is a first-class decoding option.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from notra.semantics import (
     DurationCandidate,
@@ -213,10 +214,13 @@ def decode_measure_rhythm(
 
 def build_candidates_from_events(
     note_events: list,
-    stem_map: dict[int, any],
+    stem_map: dict[int, Any],
     flag_map: dict[int, int],
     noteheads: list,
     measure_boundaries: list,
+    dot_map: dict[int, int] | None = None,
+    expected_measure_ticks: int | None = None,
+    system_members: list[list[int]] | None = None,
 ) -> list[list[SymbolCandidate]]:
     """Build per-measure candidate lists from pipeline note events.
 
@@ -227,17 +231,27 @@ def build_candidates_from_events(
         generate_duration_candidates,
     )
 
+    dot_map = dot_map or {}
+    staff_to_system = _staff_to_system(system_members or [])
+    boundaries_by_system: dict[int, list] = {}
+    for boundary in measure_boundaries:
+        system_index = int(getattr(boundary, "system_index", 0))
+        boundaries_by_system.setdefault(system_index, []).append(boundary)
+
     # Group note events by measure boundary
-    measures: dict[int, list] = {}
+    measures: dict[tuple[int, int], list] = {}
     for ne in note_events:
-        for mb in measure_boundaries:
+        event_system = staff_to_system.get(ne.staff_index, 0)
+        boundaries = boundaries_by_system.get(event_system, measure_boundaries)
+        for mb in boundaries:
             if mb.x_start <= ne.cx < mb.x_end:
-                measures.setdefault(mb.measure_number, []).append(ne)
+                system_index = int(getattr(mb, "system_index", 0))
+                measures.setdefault((system_index, mb.measure_number), []).append(ne)
                 break
 
     per_measure_candidates: list[list[SymbolCandidate]] = []
-    for m_num in sorted(measures.keys()):
-        events = measures[m_num]
+    for system_index, measure_number in sorted(measures.keys()):
+        events = measures[(system_index, measure_number)]
         events.sort(key=lambda e: e.cx)
 
         candidates: list[SymbolCandidate] = []
@@ -245,6 +259,7 @@ def build_candidates_from_events(
             nh_idx = ne.event_index
             has_stem = nh_idx in stem_map
             flags = flag_map.get(nh_idx, 0)
+            dots = dot_map.get(ne.event_index, 0)
             is_filled = False
             if nh_idx < len(noteheads):
                 is_filled = noteheads[nh_idx].is_filled
@@ -253,6 +268,7 @@ def build_candidates_from_events(
                 is_filled=is_filled,
                 has_stem=has_stem,
                 flag_count=flags,
+                dot_count=dots,
                 is_rest=ne.is_rest,
             )
 
@@ -265,12 +281,13 @@ def build_candidates_from_events(
                 id=f"evt_{ne.event_index}",
                 bbox=(int(ne.bbox.x0), int(ne.bbox.y0), int(ne.bbox.x1), int(ne.bbox.y1)),
                 staff_id=ne.staff_index,
-                measure_id=str(m_num),
+                measure_id=f"s{system_index}_m{measure_number}",
                 x=ne.cx,
                 y=ne.cy,
                 is_filled=is_filled,
                 has_stem=has_stem,
                 flag_count=flags,
+                dot_count=dots,
                 is_rest=ne.is_rest,
                 duration_candidates=dur_cands,
                 false_positive_score=fp_score,
@@ -278,6 +295,66 @@ def build_candidates_from_events(
             )
             candidates.append(cand)
 
+        if expected_measure_ticks is not None:
+            _add_measure_context_duration_candidates(candidates, expected_measure_ticks)
         per_measure_candidates.append(candidates)
 
     return per_measure_candidates
+
+
+def _staff_to_system(system_members: list[list[int]]) -> dict[int, int]:
+    result: dict[int, int] = {}
+    for system_index, members in enumerate(system_members):
+        for staff_index in members:
+            result[staff_index] = system_index
+    return result
+
+
+def _add_measure_context_duration_candidates(
+    candidates: list[SymbolCandidate],
+    expected_measure_ticks: int,
+) -> None:
+    """Add low-priority context durations needed to fill sparse measures."""
+    if expected_measure_ticks <= 0 or not candidates:
+        return
+
+    note_count = sum(1 for candidate in candidates if not candidate.is_rest)
+    if len(candidates) == 1:
+        _prepend_duration_if_missing(
+            candidates[0],
+            expected_measure_ticks,
+            visual_score=0.4,
+            evidence="single_symbol_measure_fill",
+        )
+
+    for candidate in candidates:
+        if not candidate.is_rest:
+            continue
+        full_measure_score = 1.5 if note_count == 0 else -2.0
+        _prepend_duration_if_missing(
+            candidate,
+            expected_measure_ticks,
+            visual_score=full_measure_score,
+            evidence="full_measure_rest_context",
+        )
+
+
+def _prepend_duration_if_missing(
+    candidate: SymbolCandidate,
+    duration_ticks: int,
+    *,
+    visual_score: float,
+    evidence: str,
+) -> None:
+    if any(item.adjusted_ticks == duration_ticks for item in candidate.duration_candidates):
+        return
+    candidate.duration_candidates.insert(
+        0,
+        DurationCandidate(
+            duration_ticks,
+            "whole",
+            stem_required=False,
+            visual_score=visual_score,
+            evidence=evidence,
+        ),
+    )

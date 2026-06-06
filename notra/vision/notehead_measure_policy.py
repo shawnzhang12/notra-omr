@@ -14,6 +14,7 @@ from typing import Any
 import numpy as np
 
 from notra.layout.annotations import MeasureBoundary
+from notra.layout.dots import detect_augmentation_dots
 from notra.layout.measure import estimate_staff_x_extent
 from notra.layout.stem_detector import detect_stems_global
 from notra.layout.symbol import NoteheadCandidate
@@ -208,6 +209,14 @@ def solve_noteheads_by_measure(
 
     measure_boundaries = _build_measure_boundaries(ctx)
     stem_map, flag_map = _detect_stems_and_flags(ctx, list(noteheads))
+    dot_map, _dot_candidates = detect_augmentation_dots(
+        ctx.get("ink", np.zeros((0, 0), dtype=np.uint8)),
+        ctx.get("staff_bands", []),
+        noteheads,
+        rests=rest_candidates,
+        rest_event_index_offset=len(noteheads),
+        max_dots=1,
+    )
     time_beats = int(ctx.get("_structural_time_beats", 4) or 4)
     time_beat_type = int(ctx.get("_structural_time_beat_type", 4) or 4)
 
@@ -219,6 +228,7 @@ def solve_noteheads_by_measure(
         system_members=ctx.get("system_members", []),
         stem_map=stem_map,
         flag_map=flag_map,
+        dot_map=dot_map,
         config=config,
         rest_candidates=rest_candidates,
         expected_ticks=expected_measure_ticks(time_beats, time_beat_type),
@@ -443,6 +453,7 @@ def _build_symbol_candidates_by_measure(
     system_members: list[list[int]],
     stem_map: dict[int, Any],
     flag_map: dict[int, int],
+    dot_map: dict[int, int],
     config: MeasureSelectionConfig,
     rest_candidates: tuple[NoteheadCandidate, ...],
     expected_ticks: int,
@@ -473,10 +484,12 @@ def _build_symbol_candidates_by_measure(
     for label, notehead, _boundary, measure_id in assignments:
         has_stem = label.index in stem_map
         flag_count = flag_map.get(label.index, 0)
+        dot_count = dot_map.get(label.index, 0)
         duration_candidates = generate_duration_candidates(
             is_filled=notehead.is_filled,
             has_stem=has_stem,
             flag_count=flag_count,
+            dot_count=dot_count,
             is_rest=False,
         )
         if note_assignment_count_by_measure.get(measure_id, 0) == 1:
@@ -504,6 +517,7 @@ def _build_symbol_candidates_by_measure(
                 has_stem=has_stem,
                 stem_direction=getattr(stem_map.get(label.index), "direction", ""),
                 flag_count=flag_count,
+                dot_count=dot_count,
                 is_rest=False,
                 duration_candidates=duration_candidates,
                 false_positive_score=skip_penalty,
@@ -525,6 +539,7 @@ def _build_symbol_candidates_by_measure(
             is_filled=False,
             has_stem=False,
             flag_count=0,
+            dot_count=dot_map.get(len(noteheads) + rest_index, 0),
             is_rest=True,
         )
         full_measure_score = 1.5 if note_candidate_count == 0 else -2.0
@@ -548,6 +563,7 @@ def _build_symbol_candidates_by_measure(
                 is_filled=False,
                 has_stem=False,
                 flag_count=0,
+                dot_count=dot_map.get(len(noteheads) + rest_index, 0),
                 is_rest=True,
                 duration_candidates=rest_duration_candidates,
                 false_positive_score=-0.5,

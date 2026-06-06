@@ -7,7 +7,7 @@ Never commit to a scalar duration from local evidence alone.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 # ---------------------------------------------------------------------------
 # Tick constants (1920 ticks per whole note = divisible by 2,3,4,5,6,8,10,12)
@@ -59,6 +59,7 @@ class DurationCandidate:
     stem_required: bool = True
     visual_score: float = 0.0
     grammar_score: float = 0.0
+    evidence: str = ""
 
     @property
     def adjusted_ticks(self) -> int:
@@ -92,6 +93,7 @@ class SymbolCandidate:
     has_stem: bool = False
     stem_direction: str = ""  # "up", "down", ""
     flag_count: int = 0
+    dot_count: int = 0
     is_rest: bool = False
     duration_candidates: list[DurationCandidate] = field(default_factory=list)
     false_positive_score: float = -4.0  # penalty for skipping this candidate
@@ -149,6 +151,7 @@ def generate_duration_candidates(
     is_filled: bool,
     has_stem: bool,
     flag_count: int = 0,
+    dot_count: int = 0,
     is_rest: bool = False,
 ) -> list[DurationCandidate]:
     """Generate duration hypotheses from visual evidence.
@@ -158,58 +161,155 @@ def generate_duration_candidates(
     """
     candidates: list[DurationCandidate] = []
 
+    dot_count = max(0, min(2, int(dot_count)))
+
     if is_rest:
         # Rest candidates: mostly quarter, with alternatives
         candidates = [
-            DurationCandidate(QUARTER, "quarter", stem_required=False, visual_score=-0.5),
-            DurationCandidate(EIGHTH, "eighth", stem_required=False, visual_score=-1.0),
-            DurationCandidate(HALF, "half", stem_required=False, visual_score=-1.0),
-            DurationCandidate(WHOLE, "whole", stem_required=False, visual_score=-1.5),
-            DurationCandidate(SIXTEENTH, "16th", stem_required=False, visual_score=-1.5),
+            DurationCandidate(
+                QUARTER, "quarter", stem_required=False, visual_score=-0.5,
+                evidence="rest_shape",
+            ),
+            DurationCandidate(
+                EIGHTH, "eighth", stem_required=False, visual_score=-1.0,
+                evidence="rest_shape_alt",
+            ),
+            DurationCandidate(
+                HALF, "half", stem_required=False, visual_score=-1.0,
+                evidence="rest_shape_alt",
+            ),
+            DurationCandidate(
+                WHOLE, "whole", stem_required=False, visual_score=-1.5,
+                evidence="rest_shape_alt",
+            ),
+            DurationCandidate(
+                SIXTEENTH, "16th", stem_required=False, visual_score=-1.5,
+                evidence="rest_shape_alt",
+            ),
         ]
     elif not is_filled:
         # Open notehead
         if has_stem:
             candidates = [
-                DurationCandidate(HALF, "half", stem_required=True, visual_score=-0.1),
-                DurationCandidate(QUARTER, "quarter", stem_required=True, visual_score=-1.8),
-                DurationCandidate(WHOLE, "whole", stem_required=False, visual_score=-2.5),
+                DurationCandidate(
+                    HALF, "half", stem_required=True, visual_score=-0.1,
+                    evidence="open_head_stem",
+                ),
+                DurationCandidate(
+                    QUARTER, "quarter", stem_required=True, visual_score=-1.8,
+                    evidence="open_head_stem_fallback",
+                ),
+                DurationCandidate(
+                    WHOLE, "whole", stem_required=False, visual_score=-2.5,
+                    evidence="open_head_stem_fallback",
+                ),
             ]
         else:
             # Open + no stem: strongly prefer whole note
             candidates = [
-                DurationCandidate(WHOLE, "whole", stem_required=False, visual_score=-0.2),
-                DurationCandidate(HALF, "half", stem_required=True, visual_score=-3.0),
+                DurationCandidate(
+                    WHOLE, "whole", stem_required=False, visual_score=-0.2,
+                    evidence="open_head_no_stem",
+                ),
+                DurationCandidate(
+                    HALF, "half", stem_required=True, visual_score=-3.0,
+                    evidence="open_head_no_stem_fallback",
+                ),
             ]
     else:
         # Filled notehead (with reliable stems from global detector)
         if has_stem:
             if flag_count == 1:
                 candidates = [
-                    DurationCandidate(EIGHTH, "eighth", flags=1, visual_score=-0.1),
+                    DurationCandidate(
+                        EIGHTH, "eighth", flags=1, visual_score=-0.1,
+                        evidence="filled_head_stem_one_beam_or_flag",
+                    ),
+                    DurationCandidate(
+                        QUARTER, "quarter", flags=0, visual_score=-0.8,
+                        evidence="filled_head_stem_one_beam_or_flag_fallback",
+                    ),
+                    DurationCandidate(
+                        SIXTEENTH, "16th", flags=2, visual_score=-1.1,
+                        evidence="filled_head_stem_one_beam_or_flag_fallback",
+                    ),
                 ]
             elif flag_count == 2:
                 candidates = [
-                    DurationCandidate(SIXTEENTH, "16th", flags=2, visual_score=-0.1),
+                    DurationCandidate(
+                        SIXTEENTH, "16th", flags=2, visual_score=-0.1,
+                        evidence="filled_head_stem_two_beams_or_flags",
+                    ),
+                    DurationCandidate(
+                        EIGHTH, "eighth", flags=1, visual_score=-0.7,
+                        evidence="filled_head_stem_two_beams_or_flags_fallback",
+                    ),
+                    DurationCandidate(
+                        QUARTER, "quarter", flags=0, visual_score=-1.2,
+                        evidence="filled_head_stem_two_beams_or_flags_fallback",
+                    ),
                 ]
             elif flag_count >= 3:
                 candidates = [
-                    DurationCandidate(THIRTY_SECOND, "32nd", flags=3, visual_score=-0.1),
-                    DurationCandidate(SIXTEENTH, "16th", flags=2, visual_score=-1.0),
+                    DurationCandidate(
+                        THIRTY_SECOND, "32nd", flags=3, visual_score=-0.1,
+                        evidence="filled_head_stem_three_beams_or_flags",
+                    ),
+                    DurationCandidate(
+                        SIXTEENTH, "16th", flags=2, visual_score=-1.0,
+                        evidence="filled_head_stem_three_beams_or_flags_fallback",
+                    ),
                 ]
             else:
                 # Stem but no flag/beam: quarter or inferred eighth only.
                 # No sixteenth without beam evidence.
                 candidates = [
-                    DurationCandidate(QUARTER, "quarter", visual_score=-0.1),
-                    DurationCandidate(EIGHTH, "eighth", beams=1, visual_score=-0.5),
+                    DurationCandidate(
+                        QUARTER, "quarter", visual_score=-0.1,
+                        evidence="filled_head_stem_no_beam_or_flag",
+                    ),
+                    DurationCandidate(
+                        EIGHTH, "eighth", beams=1, visual_score=-0.5,
+                        evidence="filled_head_stem_no_beam_or_flag_fallback",
+                    ),
                 ]
         else:
             # Filled but no stem: could be quarter with missed stem, or fragment
             candidates = [
-                DurationCandidate(QUARTER, "quarter", stem_required=True, visual_score=-0.7),
-                DurationCandidate(EIGHTH, "eighth", stem_required=True, visual_score=-1.2),
-                DurationCandidate(HALF, "half", stem_required=True, visual_score=-2.0),
+                DurationCandidate(
+                    QUARTER, "quarter", stem_required=True, visual_score=-0.7,
+                    evidence="filled_head_missing_stem",
+                ),
+                DurationCandidate(
+                    EIGHTH, "eighth", stem_required=True, visual_score=-1.2,
+                    evidence="filled_head_missing_stem_fallback",
+                ),
+                DurationCandidate(
+                    HALF, "half", stem_required=True, visual_score=-2.0,
+                    evidence="filled_head_missing_stem_fallback",
+                ),
             ]
 
-    return candidates
+    if dot_count <= 0:
+        return candidates
+
+    dotted: list[DurationCandidate] = []
+    undotted: list[DurationCandidate] = []
+    for candidate in candidates:
+        dotted.append(
+            replace(
+                candidate,
+                dots=dot_count,
+                visual_score=candidate.visual_score + 0.35,
+                evidence=f"{candidate.evidence}+augmentation_dot",
+            )
+        )
+        undotted.append(
+            replace(
+                candidate,
+                visual_score=candidate.visual_score - 1.20,
+                evidence=f"{candidate.evidence}+dot_rejected_fallback",
+            )
+        )
+
+    return dotted + undotted

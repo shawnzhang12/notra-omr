@@ -12,13 +12,14 @@ Stage ordering:
      5. detect_time         — classify simple opening time signatures
      6. detect_rests        — rest symbol detection
      7. detect_stems        — stem detection per notehead
-     8. detect_accidentals  — accidental detection per notehead
-     9. assign_pitch        — map staff position → diatonic pitch, apply accidentals
-    10. assign_duration     — classify notehead type → duration with flags
-    11. assign_voice        — split noteheads into voices via stem direction
-    12. assemble_measures   — group events by per-system barline boundaries
-    13. build_score         — construct notra.ir.Score with multi-voice parts
-    14. export_musicxml     — serialize to MusicXML string
+     8. detect_dots         — augmentation-dot detection per event
+     9. detect_accidentals  — accidental detection per notehead
+    10. assign_pitch        — map staff position → diatonic pitch, apply accidentals
+    11. assign_duration     — classify notehead type → duration with flags/dots
+    12. assign_voice        — split noteheads into voices via stem direction
+    13. assemble_measures   — group events by per-system barline boundaries
+    14. build_score         — construct notra.ir.Score with multi-voice parts
+    15. export_musicxml     — serialize to MusicXML string
 """
 
 from __future__ import annotations
@@ -41,6 +42,7 @@ from notra.layout.annotations import (
     PipelineResult,
     StaffAnnotation,
 )
+from notra.layout.dots import detect_augmentation_dots
 from notra.layout.measure import detect_measure_barlines, estimate_staff_x_extent
 from notra.layout.staff import (
     StaffBand,
@@ -384,7 +386,33 @@ def detect_stems_stage(ctx: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Stage 8: Accidental detection
+# Stage 8: Augmentation-dot detection
+# ---------------------------------------------------------------------------
+
+
+def detect_dots_stage(ctx: dict[str, Any]) -> None:
+    """Detect augmentation dots as duration evidence."""
+    ink = _ensure_ink(ctx)
+    bands: list[StaffBand] = ctx["staff_bands"]
+    noteheads: list[NoteheadCandidate] = ctx.get("notehead_candidates", [])
+    rests: list[NoteheadCandidate] = ctx.get("rest_candidates", [])
+
+    dot_map, dot_candidates = detect_augmentation_dots(
+        ink,
+        bands,
+        noteheads,
+        rests=rests,
+        rest_event_index_offset=len(noteheads),
+        max_dots=int(ctx.get("max_augmentation_dots", 1)),
+    )
+    ctx["dot_map"] = dot_map
+    ctx["dot_candidates"] = dot_candidates
+    ctx.setdefault("metrics", {})["augmentation_dots_found"] = len(dot_candidates)
+    ctx.setdefault("metrics", {})["dotted_events"] = len(dot_map)
+
+
+# ---------------------------------------------------------------------------
+# Stage 9: Accidental detection
 # ---------------------------------------------------------------------------
 
 
@@ -403,7 +431,7 @@ def detect_accidentals_stage(ctx: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Stage 9: Pitch assignment
+# Stage 10: Pitch assignment
 # ---------------------------------------------------------------------------
 
 
@@ -490,7 +518,7 @@ def assign_pitch_stage(ctx: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Stage 9: Duration assignment
+# Stage 11: Duration assignment
 # ---------------------------------------------------------------------------
 
 
@@ -505,6 +533,7 @@ def assign_duration_stage(ctx: dict[str, Any]) -> None:
     note_events: list[NoteEventAnnotation] = ctx.get("note_events", [])
     stem_map: dict[int, Any] = ctx.get("stem_map", {})
     flag_map: dict[int, int] = ctx.get("flag_map", {})
+    dot_map: dict[int, int] = ctx.get("dot_map", {})
     measure_boundaries = ctx.get("measure_boundaries", [])
     barline_xs: list[float] = ctx.get("barline_xs", [])
     time_beats = ctx.get("_structural_time_beats", 4)
@@ -523,12 +552,17 @@ def assign_duration_stage(ctx: dict[str, Any]) -> None:
             has_stem = nh_idx in stem_map
             stem = stem_map.get(nh_idx)
             flags = flag_map.get(nh_idx, 0)
+            dots = dot_map.get(ne.event_index, 0)
             if not ne.is_rest and nh_idx >= 0:
                 num, den = classify_duration(
-                    noteheads[nh_idx], has_stem, stem, flag_count=flags
+                    noteheads[nh_idx],
+                    has_stem,
+                    stem,
+                    flag_count=flags,
+                    dot_count=dots,
                 )
             else:
-                num, den = 1, 4
+                num, den = (3, 8) if dots else (1, 4)
 
             fallback_events.append(
                 NoteEventAnnotation(
@@ -559,13 +593,21 @@ def assign_duration_stage(ctx: dict[str, Any]) -> None:
         ctx.setdefault("metrics", {})["duration_solver_rejected"] = 0
         return
 
+    from notra.semantics import expected_ticks as expected_measure_ticks
     from notra.semantics.rhythm_solver import (
         build_candidates_from_events,
         decode_measure_rhythm,
     )
 
     per_measure = build_candidates_from_events(
-        note_events, stem_map, flag_map, noteheads, measure_boundaries
+        note_events,
+        stem_map,
+        flag_map,
+        noteheads,
+        measure_boundaries,
+        dot_map=dot_map,
+        expected_measure_ticks=expected_measure_ticks(time_beats, time_beat_type),
+        system_members=ctx.get("system_members", []),
     )
 
     # Debug: count candidates by flag_count
@@ -626,12 +668,17 @@ def assign_duration_stage(ctx: dict[str, Any]) -> None:
             has_stem = nh_idx in stem_map
             stem = stem_map.get(nh_idx)
             flags = flag_map.get(nh_idx, 0)
+            dots = dot_map.get(ne.event_index, 0)
             if not ne.is_rest and nh_idx >= 0:
                 num, den = classify_duration(
-                    noteheads[nh_idx], has_stem, stem, flag_count=flags
+                    noteheads[nh_idx],
+                    has_stem,
+                    stem,
+                    flag_count=flags,
+                    dot_count=dots,
                 )
             else:
-                num, den = 1, 4
+                num, den = (3, 8) if dots else (1, 4)
             dur_num, dur_den = num, den
 
         filtered_events.append(
@@ -1157,6 +1204,7 @@ STAGE_ORDER: tuple[tuple[str, callable], ...] = (
     ("detect_time_signature", detect_time_signature_stage),
     ("detect_rests", detect_rests_stage),
     ("detect_stems", detect_stems_stage),
+    ("detect_dots", detect_dots_stage),
     ("detect_accidentals", detect_accidentals_stage),
     ("assign_pitch", assign_pitch_stage),
     ("assemble_measures", assemble_measures_stage),
